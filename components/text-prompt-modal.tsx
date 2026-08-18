@@ -59,7 +59,7 @@ export function TextPromptModal({
       onRequestClose={onCancel}
     >
       <View style={styles.backdrop}>
-        <ThemedView style={[styles.card, { borderColor: separatorColor }]}>
+        <ThemedView style={styles.card}>
           <ThemedText type="defaultSemiBold" style={styles.title}>
             {title}
           </ThemedText>
@@ -77,14 +77,19 @@ export function TextPromptModal({
             onSubmitEditing={submit}
           />
           <View style={styles.actions}>
-            <Pressable onPress={onCancel} hitSlop={8}>
-              <ThemedText>Cancel</ThemedText>
+            <Pressable onPress={onCancel} hitSlop={8} style={styles.cancelButton}>
+              <ThemedText type="defaultSemiBold">Cancel</ThemedText>
             </Pressable>
-            <Pressable onPress={submit} hitSlop={8} disabled={!canSubmit}>
-              <ThemedText
-                type="defaultSemiBold"
-                style={{ color: tintColor, opacity: canSubmit ? 1 : 0.4 }}
-              >
+            <Pressable
+              onPress={submit}
+              hitSlop={8}
+              disabled={!canSubmit}
+              style={[
+                styles.confirmButton,
+                { backgroundColor: tintColor, opacity: canSubmit ? 1 : 0.4 },
+              ]}
+            >
+              <ThemedText type="defaultSemiBold" style={styles.confirmLabel}>
                 {confirmLabel}
               </ThemedText>
             </Pressable>
@@ -106,24 +111,41 @@ const styles = StyleSheet.create({
   card: {
     width: "100%",
     maxWidth: 360,
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    padding: 20,
-    gap: 16,
+    borderRadius: 24,
+    padding: 24,
+    gap: 18,
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 8,
   },
   title: {
     textAlign: "center",
   },
   input: {
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     fontSize: 16,
   },
   actions: {
     flexDirection: "row",
     justifyContent: "flex-end",
-    gap: 24,
+    alignItems: "center",
+    gap: 8,
+  },
+  cancelButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  confirmButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 18,
+  },
+  confirmLabel: {
+    color: "#FFFFFF",
   },
 });

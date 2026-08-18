@@ -30,6 +30,7 @@ export function FolderPickerModal({
 }) {
   const separatorColor = useThemeColor({}, "separator");
   const tintColor = useThemeColor({}, "tint");
+  const surfaceAltColor = useThemeColor({}, "surfaceAlt");
 
   const items: PickerItem[] = [
     { folderId: null, label: "Unfiled" },
@@ -51,7 +52,8 @@ export function FolderPickerModal({
           style={styles.sheetWrapper}
           onPress={(event) => event.stopPropagation()}
         >
-          <ThemedView style={[styles.sheet, { borderColor: separatorColor }]}>
+          <ThemedView style={styles.sheet}>
+            <View style={styles.handle} />
             <ThemedText type="defaultSemiBold" style={styles.title}>
               Move to Folder
             </ThemedText>
@@ -63,18 +65,26 @@ export function FolderPickerModal({
                   style={[styles.separator, { backgroundColor: separatorColor }]}
                 />
               )}
-              renderItem={({ item }) => (
-                <Pressable
-                  onPress={() => onSelect(item.folderId)}
-                  style={styles.row}
-                  accessibilityRole="button"
-                >
-                  <ThemedText style={styles.rowLabel}>{item.label}</ThemedText>
-                  {item.folderId === currentFolderId && (
-                    <IconSymbol name="checkmark" size={18} color={tintColor} />
-                  )}
-                </Pressable>
-              )}
+              renderItem={({ item }) => {
+                const selected = item.folderId === currentFolderId;
+                return (
+                  <Pressable
+                    onPress={() => onSelect(item.folderId)}
+                    style={[styles.row, selected && { backgroundColor: surfaceAltColor }]}
+                    accessibilityRole="button"
+                  >
+                    <ThemedText
+                      type={selected ? "defaultSemiBold" : "default"}
+                      style={styles.rowLabel}
+                    >
+                      {item.label}
+                    </ThemedText>
+                    {selected && (
+                      <IconSymbol name="checkmark" size={18} color={tintColor} />
+                    )}
+                  </Pressable>
+                );
+              }}
             />
             <Pressable onPress={onCancel} style={styles.cancel} hitSlop={8}>
               <ThemedText type="defaultSemiBold">Cancel</ThemedText>
@@ -96,11 +106,23 @@ const styles = StyleSheet.create({
     maxHeight: "70%",
   },
   sheet: {
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingTop: 16,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingTop: 10,
     paddingBottom: 8,
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: -6 },
+    elevation: 8,
+  },
+  handle: {
+    alignSelf: "center",
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "rgba(128,128,128,0.4)",
+    marginBottom: 12,
   },
   title: {
     textAlign: "center",
@@ -112,6 +134,8 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 20,
     paddingVertical: 14,
+    borderRadius: 14,
+    marginHorizontal: 8,
   },
   rowLabel: {
     flex: 1,

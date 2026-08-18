@@ -1,20 +1,18 @@
-import { FlatList, Pressable, StyleSheet } from "react-native";
+import { FlatList, StyleSheet, View } from "react-native";
 
+import { NoteCard } from "@/components/notes/note-card";
 import { ThemedText } from "@/components/themed-text";
-import { ThemedView } from "@/components/themed-view";
-import { deriveTitle } from "@/db/repository";
 import type { NoteRow } from "@/db/schema";
-import { useThemeColor } from "@/hooks/use-theme-color";
 
 export type SearchResultRow = NoteRow & { folderName: string | null };
 
 /**
- * Global search's result rows (ticket 06). Distinct from `NotesList`
- * (ticket 03/05) rather than a variant of it: every result here can come
- * from a different Folder, so each row needs a second line naming that
- * Folder (or "Unfiled") for context — something no `NotesList` caller,
- * always scoped to one Folder or all of them, has ever needed to show. No
- * delete affordance either — search only opens a Note (see 06's spec).
+ * Global search's result rows (ticket 06). Shares `NoteCard` with
+ * `NotesList` but passes `subtitle` (the result's Folder name, or
+ * "Unfiled") instead of letting the card fall back to its date — every
+ * result here can come from a different Folder, so that's the context a
+ * search result needs that a Folder-scoped list never does. No `onDelete`
+ * either — search only opens a Note (see CONTEXT.md, "Search").
  */
 export function SearchResultsList({
   results,
@@ -25,68 +23,44 @@ export function SearchResultsList({
   onPress: (note: NoteRow) => void;
   emptyMessage: string;
 }) {
-  const separatorColor = useThemeColor({}, "separator");
-  const placeholderColor = useThemeColor({}, "placeholder");
-
   return (
     <FlatList
       data={results}
       keyExtractor={(note) => String(note.id)}
       keyboardShouldPersistTaps="handled"
-      contentContainerStyle={
-        results.length === 0 ? styles.emptyContainer : undefined
-      }
-      ItemSeparatorComponent={() => (
-        <ThemedView
-          style={[styles.separator, { backgroundColor: separatorColor }]}
+      contentContainerStyle={[
+        styles.content,
+        results.length === 0 && styles.emptyContent,
+      ]}
+      ItemSeparatorComponent={() => <View style={styles.separator} />}
+      renderItem={({ item }) => (
+        <NoteCard
+          note={item}
+          subtitle={item.folderName ?? "Unfiled"}
+          onPress={() => onPress(item)}
         />
       )}
-      renderItem={({ item }) => (
-        <Pressable
-          onPress={() => onPress(item)}
-          style={styles.row}
-          accessibilityRole="button"
-        >
-          <ThemedText style={styles.title} numberOfLines={1}>
-            {deriveTitle(item.content)}
-          </ThemedText>
-          <ThemedText
-            numberOfLines={1}
-            style={[styles.folder, { color: placeholderColor }]}
-          >
-            {item.folderName ?? "Unfiled"}
-          </ThemedText>
-        </Pressable>
-      )}
       ListEmptyComponent={
-        <ThemedView style={styles.empty}>
-          <ThemedText>{emptyMessage}</ThemedText>
-        </ThemedView>
+        <ThemedText style={styles.empty}>{emptyMessage}</ThemedText>
       }
     />
   );
 }
 
 const styles = StyleSheet.create({
-  row: {
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    gap: 2,
+  content: {
+    paddingHorizontal: 20,
+    paddingBottom: 140,
   },
-  title: {
-    fontWeight: "600",
-  },
-  folder: {
-    fontSize: 14,
+  emptyContent: {
+    flexGrow: 1,
+    justifyContent: "center",
   },
   separator: {
-    height: StyleSheet.hairlineWidth,
+    height: 12,
   },
   empty: {
-    paddingHorizontal: 16,
-    paddingVertical: 24,
-  },
-  emptyContainer: {
-    flexGrow: 1,
+    textAlign: "center",
+    paddingHorizontal: 24,
   },
 });

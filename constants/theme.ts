@@ -1,35 +1,49 @@
 /**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
+ * The app's color palette — warm and earthy (terracotta accent on cream /
+ * espresso surfaces), light and dark variants. `surface`/`surfaceAlt` back
+ * cards and chips; `navBackground` is the floating bottom nav/toolbar's
+ * pill color, deliberately near-constant across themes (see
+ * components/ui/bottom-nav.tsx) so it reads as one consistent piece of
+ * chrome regardless of the rest of the screen's theme.
  */
 
 import { Platform } from 'react-native';
 
-const tintColorLight = '#0a7ea4';
-const tintColorDark = '#fff';
+const tintColorLight = '#D2693A';
+const tintColorDark = '#E5824F';
 
 export const Colors = {
   light: {
-    text: '#11181C',
-    background: '#fff',
+    text: '#2B2016',
+    background: '#F7F1E7',
+    surface: '#FFFFFF',
+    surfaceAlt: '#EFE1CC',
     tint: tintColorLight,
-    icon: '#687076',
-    tabIconDefault: '#687076',
+    icon: '#8A7A64',
+    tabIconDefault: '#8A7A64',
     tabIconSelected: tintColorLight,
-    separator: '#e3e3e3',
-    placeholder: '#8e8e93',
-    danger: '#ff3b30',
+    separator: '#E7DAC4',
+    placeholder: '#A0907A',
+    danger: '#C4432F',
+    navBackground: '#241A11',
+    navIconInactive: '#B7A88F',
+    navIconActive: '#FFFFFF',
   },
   dark: {
-    text: '#ECEDEE',
-    background: '#151718',
+    text: '#F3E9DB',
+    background: '#171310',
+    surface: '#241D16',
+    surfaceAlt: '#2E2519',
     tint: tintColorDark,
-    icon: '#9BA1A6',
-    tabIconDefault: '#9BA1A6',
+    icon: '#A79680',
+    tabIconDefault: '#A79680',
     tabIconSelected: tintColorDark,
-    separator: '#2a2c2e',
-    placeholder: '#6d6d70',
-    danger: '#ff453a',
+    separator: '#372C21',
+    placeholder: '#8C7B66',
+    danger: '#E5695A',
+    navBackground: '#0E0B08',
+    navIconInactive: '#8C7B66',
+    navIconActive: '#F3E9DB',
   },
 };
 

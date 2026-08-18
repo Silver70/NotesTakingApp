@@ -1,12 +1,16 @@
-import { Stack, useFocusEffect, useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { StyleSheet, TextInput } from "react-native";
+import { StyleSheet, TextInput, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
   SearchResultsList,
   type SearchResultRow,
 } from "@/components/search-results-list";
 import { ThemedView } from "@/components/themed-view";
+import { BackButton } from "@/components/ui/back-button";
+import { BottomNav } from "@/components/ui/bottom-nav";
+import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useNotesRepository } from "@/db/context";
 import type { FolderRow, NoteRow } from "@/db/schema";
 import { withFolderContext } from "@/lib/notes/search";
@@ -31,9 +35,11 @@ const SEARCH_DEBOUNCE_MS = 200;
 export default function SearchScreen() {
   const repo = useNotesRepository();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const textColor = useThemeColor({}, "text");
   const placeholderColor = useThemeColor({}, "placeholder");
   const separatorColor = useThemeColor({}, "separator");
+  const surfaceColor = useThemeColor({}, "surface");
 
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResultRow[]>([]);
@@ -85,7 +91,7 @@ export default function SearchScreen() {
 
   // Re-fetches Folder names and re-runs the current query every time this
   // screen regains focus — the same "catches a Note created, edited, or
-  // discarded... and returned from" reasoning app/notes.tsx and
+  // discarded... and returned from" reasoning app/index.tsx and
   // app/folder/[id].tsx already rely on `useFocusEffect` for. Without
   // this, a Note edited or deleted from a tapped-into result would still
   // show its old title (or still show at all) until the next keystroke.
@@ -115,21 +121,28 @@ export default function SearchScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <Stack.Screen options={{ title: "Search" }} />
-      <TextInput
-        value={query}
-        onChangeText={setQuery}
-        placeholder="Search Notes"
-        placeholderTextColor={placeholderColor}
-        style={[
-          styles.input,
-          { color: textColor, borderColor: separatorColor },
-        ]}
-        autoFocus
-        autoCorrect={false}
-        returnKeyType="search"
-        accessibilityLabel="Search Notes"
-      />
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+        <BackButton onPress={() => router.back()} />
+        <View
+          style={[
+            styles.inputWrap,
+            { backgroundColor: surfaceColor, borderColor: separatorColor },
+          ]}
+        >
+          <IconSymbol name="magnifyingglass" size={18} color={placeholderColor} />
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search Notes"
+            placeholderTextColor={placeholderColor}
+            style={[styles.input, { color: textColor }]}
+            autoFocus
+            autoCorrect={false}
+            returnKeyType="search"
+            accessibilityLabel="Search Notes"
+          />
+        </View>
+      </View>
       <SearchResultsList
         results={results}
         onPress={handlePress}
@@ -139,6 +152,13 @@ export default function SearchScreen() {
             : "Type to search every Note's title and content."
         }
       />
+      <BottomNav
+        active="search"
+        onNavigate={(section) => {
+          if (section === "home") router.push("/");
+        }}
+        onAdd={() => router.push("/note/new")}
+      />
     </ThemedView>
   );
 }
@@ -147,12 +167,26 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  input: {
-    margin: 16,
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+  },
+  inputWrap: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    height: 44,
+    borderRadius: 22,
+    paddingHorizontal: 14,
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+  },
+  input: {
+    flex: 1,
     fontSize: 16,
+    paddingVertical: 0,
   },
 });

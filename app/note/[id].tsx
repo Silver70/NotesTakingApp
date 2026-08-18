@@ -7,7 +7,7 @@ import {
   Toolbar,
   useEditorBridge,
 } from "@10play/tentap-editor";
-import { Stack, useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
@@ -15,12 +15,15 @@ import {
   Platform,
   Pressable,
   StyleSheet,
+  View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FolderPickerModal } from "@/components/folder-picker-modal";
 import { LoadingView } from "@/components/loading-view";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
+import { BackButton } from "@/components/ui/back-button";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useNotesRepository } from "@/db/context";
 import { NotFoundError, type NotesRepository } from "@/db/repository";
@@ -103,6 +106,8 @@ export default function NoteScreen() {
   const isNewNote = id === "new";
   const numericId = isNewNote ? null : Number(id);
   const repo = useNotesRepository();
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   // Seeds the editor once, the render it first mounts — see the effect
   // below for why that render is guaranteed to already have real content.
@@ -199,18 +204,49 @@ export default function NoteScreen() {
   const dictationAdapter = useRef(createNativeDictationAdapter()).current;
 
   const colorScheme = useColorScheme() ?? "light";
+  const placeholderColor = useThemeColor({}, "placeholder");
+  const tintColor = useThemeColor({}, "tint");
+  const dangerColor = useThemeColor({}, "danger");
+  const surfaceColor = useThemeColor({}, "surface");
+  const backgroundColor = useThemeColor({}, "background");
+  const navBackgroundColor = useThemeColor({}, "navBackground");
+  const navIconInactiveColor = useThemeColor({}, "navIconInactive");
   // `theme` only covers the WebView's own background and the (native,
   // not WebView-rendered) toolbar — both plain RN styles that update live
   // on every render, unlike the CSS below. The note body's own text stays
   // TenTap's default (unthemed) color regardless, so it needs `darkEditorCss`
   // injected into the document too, or dark mode would pair a dark
   // background with equally-dark default text.
-  const editorTheme =
-    colorScheme === "dark" ? darkEditorTheme : defaultEditorTheme;
+  //
+  // The base per-scheme theme is restyled (ticket-less UI pass) so the
+  // formatting Toolbar reads as the same floating dark pill as the rest of
+  // the app's chrome (see components/ui/bottom-nav.tsx) rather than
+  // TenTap's default flat white/gray bar — only `webview`'s background
+  // (the note body itself) stays scheme-appropriate, light mode picking up
+  // this app's cream surface color, dark mode left at TenTap's own dark
+  // constant since `darkEditorCss` below hard-codes text/background
+  // together and re-deriving both to match this app's exact dark surface
+  // isn't worth the risk of a mismatched, hard-to-read pairing.
+  const editorTheme = useMemo(() => {
+    const base = colorScheme === "dark" ? darkEditorTheme : defaultEditorTheme;
+    return {
+      ...base,
+      webview: colorScheme === "dark" ? base.webview : { backgroundColor: surfaceColor },
+      toolbar: {
+        ...base.toolbar,
+        toolbarBody: [
+          base.toolbar.toolbarBody,
+          { backgroundColor: navBackgroundColor, borderTopWidth: 0, borderBottomWidth: 0, height: 56 },
+        ],
+        toolbarButton: [base.toolbar.toolbarButton, { backgroundColor: navBackgroundColor }],
+        iconWrapper: [base.toolbar.iconWrapper, { backgroundColor: navBackgroundColor, borderRadius: 10 }],
+        iconWrapperActive: { backgroundColor: tintColor },
+        icon: [base.toolbar.icon, { tintColor: navIconInactiveColor }],
+        iconActive: { tintColor: "#FFFFFF" },
+      },
+    };
+  }, [colorScheme, surfaceColor, navBackgroundColor, tintColor, navIconInactiveColor]);
   const editorBodyCSS = colorScheme === "dark" ? darkEditorCss : "";
-  const placeholderColor = useThemeColor({}, "placeholder");
-  const tintColor = useThemeColor({}, "tint");
-  const dangerColor = useThemeColor({}, "danger");
   const placeholderCSS = `
     .is-editor-empty:first-child::before {
       color: ${placeholderColor};
@@ -645,18 +681,28 @@ export default function NoteScreen() {
 
   if (loadFailure === "not-found") {
     return (
-      <ThemedView style={styles.centered}>
-        <ThemedText>This Note no longer exists.</ThemedText>
+      <ThemedView style={styles.flex}>
+        <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+          <BackButton onPress={() => router.back()} />
+        </View>
+        <ThemedView style={styles.centered}>
+          <ThemedText>This Note no longer exists.</ThemedText>
+        </ThemedView>
       </ThemedView>
     );
   }
 
   if (loadFailure === "error") {
     return (
-      <ThemedView style={styles.centered}>
-        <ThemedText>
-          Couldn&apos;t load this Note. Go back and try again.
-        </ThemedText>
+      <ThemedView style={styles.flex}>
+        <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+          <BackButton onPress={() => router.back()} />
+        </View>
+        <ThemedView style={styles.centered}>
+          <ThemedText>
+            Couldn&apos;t load this Note. Go back and try again.
+          </ThemedText>
+        </ThemedView>
       </ThemedView>
     );
   }
@@ -677,55 +723,75 @@ export default function NoteScreen() {
       : (folders.find((folder) => folder.id === folderId)?.name ?? "Unfiled");
 
   return (
-    <ThemedView style={styles.flex}>
-      {currentFolderLabel !== null && (
-        <Stack.Screen
-          options={{
-            headerRight: () => (
-              <Pressable onPress={() => setShowFolderPicker(true)} hitSlop={8}>
-                <ThemedText type="defaultSemiBold">{currentFolderLabel}</ThemedText>
-              </Pressable>
-            ),
-          }}
-        />
-      )}
+    <ThemedView style={[styles.flex, { backgroundColor }]}>
+      {/* Replaces the native Stack header (ticket-less UI pass): a
+          floating back button, plus — once an already-persisted Note's
+          Folder is known (see `currentFolderLabel` above) — a pill
+          showing it that opens the same Move-to-Folder picker the
+          native header's text link used to. */}
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+        <BackButton onPress={() => router.back()} />
+        {currentFolderLabel !== null && (
+          <Pressable
+            onPress={() => setShowFolderPicker(true)}
+            style={[styles.folderPill, { backgroundColor: surfaceColor }]}
+            hitSlop={8}
+            accessibilityRole="button"
+          >
+            <IconSymbol name="folder.fill" size={14} color={tintColor} />
+            <ThemedText
+              type="defaultSemiBold"
+              style={styles.folderPillLabel}
+              numberOfLines={1}
+            >
+              {currentFolderLabel}
+            </ThemedText>
+          </Pressable>
+        )}
+      </View>
       <RichText
         editor={editor}
         onLoad={() => setEditorLoadGeneration((n) => n + 1)}
       />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={styles.toolbarContainer}
+        style={[styles.toolbarContainer, { paddingBottom: insets.bottom + 12 }]}
       >
-        <ThemedView style={styles.dictationRow}>
-          <Pressable
-            onPress={toggleDictation}
-            style={styles.micButton}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel={
-              isListening ? "Stop dictation" : "Start dictation"
-            }
-          >
-            <IconSymbol
-              name="mic.fill"
-              size={22}
-              color={isListening ? dangerColor : tintColor}
-            />
-          </Pressable>
-          {isListening && (
-            <ThemedText style={[styles.listeningLabel, { color: dangerColor }]}>
-              Listening…
-            </ThemedText>
-          )}
-        </ThemedView>
-        {/* Ticket 08: formatting is disabled while Dictation listens —
-            hiding the Toolbar outright (rather than merely disabling its
-            commands) is what makes that true for the user, not just in
-            theory. `hidden={undefined}` otherwise defers to the Toolbar's
-            own keyboard/focus-driven show behaviour, unchanged from before
-            this ticket. */}
-        <Toolbar editor={editor} hidden={isListening ? true : undefined} />
+        {/* The floating dark pill matching the rest of the app's chrome
+            (see components/ui/bottom-nav.tsx) — `overflow: hidden` lets
+            its rounded corners clip the dictation row and Toolbar below,
+            which otherwise both paint their own (matching) background. */}
+        <View style={[styles.floatingToolbar, { backgroundColor: navBackgroundColor }]}>
+          <View style={styles.dictationRow}>
+            <Pressable
+              onPress={toggleDictation}
+              style={styles.micButton}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={
+                isListening ? "Stop dictation" : "Start dictation"
+              }
+            >
+              <IconSymbol
+                name="mic.fill"
+                size={20}
+                color={isListening ? dangerColor : navIconInactiveColor}
+              />
+            </Pressable>
+            {isListening && (
+              <ThemedText style={[styles.listeningLabel, { color: dangerColor }]}>
+                Listening…
+              </ThemedText>
+            )}
+          </View>
+          {/* Ticket 08: formatting is disabled while Dictation listens —
+              hiding the Toolbar outright (rather than merely disabling its
+              commands) is what makes that true for the user, not just in
+              theory. `hidden={undefined}` otherwise defers to the Toolbar's
+              own keyboard/focus-driven show behaviour, unchanged from before
+              this ticket. */}
+          <Toolbar editor={editor} hidden={isListening ? true : undefined} />
+        </View>
       </KeyboardAvoidingView>
       <FolderPickerModal
         visible={showFolderPicker}
@@ -742,10 +808,44 @@ const styles = StyleSheet.create({
   flex: {
     flex: 1,
   },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+  },
+  folderPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    height: 36,
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    maxWidth: 180,
+    shadowColor: "#000",
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  folderPillLabel: {
+    fontSize: 14,
+  },
   toolbarContainer: {
     position: "absolute",
     width: "100%",
     bottom: 0,
+    paddingHorizontal: 16,
+  },
+  floatingToolbar: {
+    borderRadius: 28,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 8,
   },
   dictationRow: {
     flexDirection: "row",
