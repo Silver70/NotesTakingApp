@@ -2,54 +2,52 @@ import { Stack, useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { Alert, FlatList, Pressable, StyleSheet } from "react-native";
 
+import { TextPromptModal } from "@/components/text-prompt-modal";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useNotesRepository } from "@/db/context";
-import { deriveTitle } from "@/db/repository";
-import type { NoteRow } from "@/db/schema";
+import type { FolderRow } from "@/db/schema";
+import { useFolderActions } from "@/hooks/use-folder-actions";
 import { useThemeColor } from "@/hooks/use-theme-color";
 
-export default function AllNotesScreen() {
+/**
+ * The app's landing screen (ticket 05): "All Notes" pinned above every
+ * Folder, Apple Notes-style. Folders are flat and shown with a single
+ * fixed icon (see CONTEXT.md, "Folder") — there's nothing per-folder to
+ * customize, just a name to create, rename, or delete.
+ */
+export default function FoldersScreen() {
   const repo = useNotesRepository();
   const router = useRouter();
-  const [notes, setNotes] = useState<NoteRow[]>([]);
+  const [folders, setFolders] = useState<FolderRow[]>([]);
+  const [creating, setCreating] = useState(false);
   const iconColor = useThemeColor({}, "icon");
   const separatorColor = useThemeColor({}, "separator");
 
   const reload = useCallback(() => {
-    repo.listNotes().then(setNotes).catch((error) => {
-      console.error("Failed to load notes", error);
+    repo.listFolders().then(setFolders).catch((error) => {
+      console.error("Failed to load folders", error);
     });
   }, [repo]);
 
-  // Re-fetch every time this screen regains focus — covers returning from
-  // the editor after an autosaved edit, a new Note, or a discarded blank
-  // Note, none of which this screen otherwise knows happened.
   useFocusEffect(reload);
 
-  const handleNewNote = useCallback(() => {
-    router.push("/note/new");
-  }, [router]);
+  const { renamingFolder, setRenamingFolder, handleRename, showOptions } = useFolderActions(
+    repo,
+    { onChanged: reload, onDeleted: reload },
+  );
 
-  const handleDelete = useCallback(
-    (note: NoteRow) => {
-      Alert.alert("Delete Note?", "This can't be undone.", [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await repo.deleteNote(note.id);
-              reload();
-            } catch (error) {
-              console.error("Failed to delete note", error);
-              Alert.alert("Couldn't delete this Note", "Please try again.");
-            }
-          },
-        },
-      ]);
+  const handleCreate = useCallback(
+    async (name: string) => {
+      try {
+        await repo.createFolder(name);
+        setCreating(false);
+        reload();
+      } catch (error) {
+        console.error("Failed to create folder", error);
+        Alert.alert("Couldn't create this Folder", "Please try again.");
+      }
     },
     [repo, reload],
   );
@@ -58,18 +56,33 @@ export default function AllNotesScreen() {
     <ThemedView style={styles.container}>
       <Stack.Screen
         options={{
+          title: "Notes",
           headerRight: () => (
-            <Pressable onPress={handleNewNote} hitSlop={8}>
-              <ThemedText type="defaultSemiBold">+ New Note</ThemedText>
+            <Pressable onPress={() => setCreating(true)} hitSlop={8}>
+              <ThemedText type="defaultSemiBold">+ New Folder</ThemedText>
             </Pressable>
           ),
         }}
       />
       <FlatList
-        data={notes}
-        keyExtractor={(note) => String(note.id)}
-        contentContainerStyle={
-          notes.length === 0 ? styles.emptyContainer : undefined
+        data={folders}
+        keyExtractor={(folder) => String(folder.id)}
+        ListHeaderComponent={
+          <>
+            <Pressable
+              onPress={() => router.push("/notes")}
+              style={styles.row}
+              accessibilityRole="button"
+            >
+              <ThemedText type="defaultSemiBold" style={styles.rowLabel}>
+                All Notes
+              </ThemedText>
+              <IconSymbol name="chevron.right" size={18} color={iconColor} />
+            </Pressable>
+            <ThemedView
+              style={[styles.separator, { backgroundColor: separatorColor }]}
+            />
+          </>
         }
         ItemSeparatorComponent={() => (
           <ThemedView
@@ -78,29 +91,46 @@ export default function AllNotesScreen() {
         )}
         renderItem={({ item }) => (
           <Pressable
-            onPress={() => router.push(`/note/${item.id}`)}
+            onPress={() => router.push(`/folder/${item.id}`)}
             style={styles.row}
             accessibilityRole="button"
           >
-            <ThemedText style={styles.title} numberOfLines={1}>
-              {deriveTitle(item.content)}
+            <IconSymbol name="folder.fill" size={20} color={iconColor} />
+            <ThemedText style={styles.rowLabel} numberOfLines={1}>
+              {item.name}
             </ThemedText>
             <Pressable
-              onPress={() => handleDelete(item)}
+              onPress={() => showOptions(item)}
               hitSlop={8}
               accessibilityRole="button"
             >
-              <IconSymbol name="trash.fill" size={20} color={iconColor} />
+              <IconSymbol name="ellipsis" size={20} color={iconColor} />
             </Pressable>
           </Pressable>
         )}
         ListEmptyComponent={
           <ThemedView style={styles.empty}>
             <ThemedText>
-              No Notes yet — tap “+ New Note” to create one.
+              No Folders yet — tap “+ New Folder” to create one.
             </ThemedText>
           </ThemedView>
         }
+      />
+      <TextPromptModal
+        visible={creating}
+        title="New Folder"
+        confirmLabel="Create"
+        placeholder="Folder name"
+        onCancel={() => setCreating(false)}
+        onSubmit={handleCreate}
+      />
+      <TextPromptModal
+        visible={renamingFolder !== null}
+        title="Rename Folder"
+        confirmLabel="Save"
+        initialValue={renamingFolder?.name ?? ""}
+        onCancel={() => setRenamingFolder(null)}
+        onSubmit={handleRename}
       />
     </ThemedView>
   );
@@ -113,12 +143,11 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 14,
     gap: 12,
   },
-  title: {
+  rowLabel: {
     flex: 1,
   },
   separator: {
@@ -127,8 +156,5 @@ const styles = StyleSheet.create({
   empty: {
     paddingHorizontal: 16,
     paddingVertical: 24,
-  },
-  emptyContainer: {
-    flexGrow: 1,
   },
 });

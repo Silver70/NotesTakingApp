@@ -16,6 +16,9 @@ type IconSymbolName = keyof typeof MAPPING;
 const MAPPING = {
   'chevron.right': 'chevron-right',
   'trash.fill': 'delete',
+  'folder.fill': 'folder',
+  'ellipsis': 'more-horiz',
+  'checkmark': 'check',
 } as IconMapping;
 
 /**

@@ -7,15 +7,23 @@ import {
   Toolbar,
   useEditorBridge,
 } from "@10play/tentap-editor";
-import { useLocalSearchParams } from "expo-router";
+import { Stack, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { KeyboardAvoidingView, Platform, StyleSheet } from "react-native";
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  StyleSheet,
+} from "react-native";
 
+import { FolderPickerModal } from "@/components/folder-picker-modal";
 import { LoadingView } from "@/components/loading-view";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { useNotesRepository } from "@/db/context";
-import type { NotesRepository } from "@/db/repository";
+import { NotFoundError, type NotesRepository } from "@/db/repository";
+import type { FolderRow } from "@/db/schema";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import {
@@ -28,15 +36,48 @@ import { toEditorContent } from "@/lib/notes/rich-text";
 
 const AUTOSAVE_DELAY_MS = 400;
 
-/** Executes whichever action `decideAutosave`/`decideOnLeave` decided on. */
+/** Parses the `folderId` route param a new Note is created from (ticket
+ * 05) — present and numeric when opened via "+ New Note" from inside a
+ * Folder (`/note/new?folderId=…`), absent (→ Unfiled) from "All Notes".
+ * Malformed input degrades to Unfiled rather than throwing, same
+ * defensive stance as the rest of this screen's route-param handling. */
+function parseFolderIdParam(value: string | undefined): number | null {
+  if (value === undefined) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+/** Executes whichever action `decideAutosave`/`decideOnLeave` decided on.
+ * `initialFolderId` only matters for the "create" branch — an existing
+ * Note's Folder is changed via `moveNote` (see `handleMove` below), not
+ * through this autosave path. */
 async function applyAction(
   repo: NotesRepository,
   action: AutosaveAction | LeaveAction,
   onCreated: (id: number) => void,
+  initialFolderId: number | null,
 ): Promise<void> {
   switch (action.type) {
     case "create": {
-      const note = await repo.createNote({ content: action.content });
+      let note;
+      try {
+        note = await repo.createNote({
+          content: action.content,
+          folderId: initialFolderId,
+        });
+      } catch (error) {
+        // The target Folder no longer exists — a stale/malformed `folderId`
+        // route param, or a Folder deleted (from another screen) between
+        // this screen mounting and the first autosave. Falling back to
+        // Unfiled keeps the Note's content instead of losing it: every
+        // failed retry here would otherwise repeat forever, since nothing
+        // else ever clears `initialFolderId`.
+        if (initialFolderId !== null && error instanceof NotFoundError) {
+          note = await repo.createNote({ content: action.content, folderId: null });
+        } else {
+          throw error;
+        }
+      }
       onCreated(note.id);
       return;
     }
@@ -52,7 +93,10 @@ async function applyAction(
 }
 
 export default function NoteScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, folderId: folderIdParam } = useLocalSearchParams<{
+    id: string;
+    folderId?: string;
+  }>();
   const isNewNote = id === "new";
   const numericId = isNewNote ? null : Number(id);
   const repo = useNotesRepository();
@@ -64,11 +108,33 @@ export default function NoteScreen() {
   const [loadFailure, setLoadFailure] = useState<"not-found" | "error" | null>(
     null,
   );
+  // The Folder this Note is (or, for a still-unsaved new Note, will be)
+  // filed under — null means Unfiled. For an existing Note this is
+  // populated by the load effect below; for a new Note it's seeded once
+  // from the `folderId` route param and only otherwise changes via
+  // `handleMove` once the Note is persisted (see the header's Move
+  // control, gated on `!isNewNote`).
+  const [folderId, setFolderId] = useState<number | null>(() =>
+    parseFolderIdParam(folderIdParam),
+  );
+  const [folders, setFolders] = useState<FolderRow[]>([]);
+  // Distinct from `folders.length === 0`, which is also true for a note
+  // that's genuinely Unfiled with no other Folders to move into — without
+  // this, the header's Move label would flash "Unfiled" for a filed Note
+  // for the brief window before its real Folder's name has loaded.
+  const [foldersLoaded, setFoldersLoaded] = useState(false);
+  const [showFolderPicker, setShowFolderPicker] = useState(false);
 
   // Mutable, not state: these back the autosave/leave decisions and must
   // reflect the latest value synchronously (from the debounce timer and
   // from the unmount cleanup), not React's next-render value.
   const noteIdRef = useRef<number | null>(null);
+  // A new Note's target Folder never changes after this screen mounts
+  // (see `folderId` state's own comment) — captured once so the
+  // debounced autosave and the unmount-time leave decision, both queued
+  // tasks that may run well after the initiating render, use the same
+  // value `applyAction`'s "create" branch was always going to see.
+  const initialFolderIdRef = useRef(parseFolderIdParam(folderIdParam));
   // Holds the editor's content (a serialized rich-text document — see
   // ADR-0001) as of the last `onChange`, kept in sync via TenTap's async
   // `getJSON()` bridge call rather than a synchronous keystroke handler.
@@ -100,7 +166,8 @@ export default function NoteScreen() {
   // TenTap's default (unthemed) color regardless, so it needs `darkEditorCss`
   // injected into the document too, or dark mode would pair a dark
   // background with equally-dark default text.
-  const editorTheme = colorScheme === "dark" ? darkEditorTheme : defaultEditorTheme;
+  const editorTheme =
+    colorScheme === "dark" ? darkEditorTheme : defaultEditorTheme;
   const editorBodyCSS = colorScheme === "dark" ? darkEditorCss : "";
   const placeholderColor = useThemeColor({}, "placeholder");
   const placeholderCSS = `
@@ -163,6 +230,7 @@ export default function NoteScreen() {
           (id) => {
             noteIdRef.current = id;
           },
+          initialFolderIdRef.current,
         ),
       );
     }, AUTOSAVE_DELAY_MS);
@@ -281,6 +349,7 @@ export default function NoteScreen() {
         // also the one where `initialContent` already reflects this Note,
         // not the empty string it started as.
         setInitialContent(note.content);
+        setFolderId(note.folderId);
         setLoaded(true);
       })
       .catch((error) => {
@@ -293,6 +362,48 @@ export default function NoteScreen() {
       cancelled = true;
     };
   }, [isNewNote, numericId, repo]);
+
+  // Populates the Move-to-Folder picker (ticket 05) — only relevant for an
+  // existing Note (see the header's Move control below), so a new Note
+  // never pays for a Folder list it can't use yet.
+  useEffect(() => {
+    if (isNewNote) return;
+    let cancelled = false;
+    repo
+      .listFolders()
+      .then((rows) => {
+        if (cancelled) return;
+        setFolders(rows);
+        setFoldersLoaded(true);
+      })
+      .catch((error) => {
+        console.error("Failed to load folders", error);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isNewNote, repo]);
+
+  // Moves this (already-persisted) Note to a different Folder, or back to
+  // Unfiled — a direct, immediate repository call rather than something
+  // routed through the autosave/leave decisions above, since it's not a
+  // content edit and shouldn't wait on the debounce.
+  const handleMove = useCallback(
+    async (newFolderId: number | null) => {
+      const noteId = noteIdRef.current;
+      if (noteId === null) return;
+      try {
+        await repo.moveNote(noteId, newFolderId);
+        setFolderId(newFolderId);
+      } catch (error) {
+        console.error("Failed to move note", error);
+        Alert.alert("Couldn't move this Note", "Please try again.");
+      } finally {
+        setShowFolderPicker(false);
+      }
+    },
+    [repo],
+  );
 
   // Runs once, on navigating away from this Note: flushes whatever the
   // debounce timer hasn't saved yet, or — if the Note is left with no
@@ -316,6 +427,11 @@ export default function NoteScreen() {
   // editor across an unmount, not something to paper over with a doomed
   // "read one more time" attempt.
   useEffect(() => {
+    // Copied out of the ref here, at effect-setup time, rather than read
+    // from `initialFolderIdRef.current` down in the cleanup below: the ref
+    // itself never actually changes after mount (see its own comment), but
+    // the lint rule can't know that, and this reads the same either way.
+    const initialFolderId = initialFolderIdRef.current;
     return () => {
       isUnmountedRef.current = true;
       if (saveTimerRef.current) {
@@ -328,6 +444,7 @@ export default function NoteScreen() {
           (id) => {
             noteIdRef.current = id;
           },
+          initialFolderId,
         ),
       );
     };
@@ -357,8 +474,30 @@ export default function NoteScreen() {
     return <LoadingView />;
   }
 
+  // Only an already-persisted Note can be moved (see `folderId` state's
+  // own comment) — a brand new Note's Folder is fixed at creation time by
+  // the `folderId` route param, not something this screen offers to
+  // change before it even exists. Also withheld until `foldersLoaded`, so
+  // a filed Note never flashes "Unfiled" before its real Folder's name has
+  // loaded (see that state's own comment).
+  const currentFolderLabel =
+    isNewNote || !foldersLoaded
+      ? null
+      : (folders.find((folder) => folder.id === folderId)?.name ?? "Unfiled");
+
   return (
     <ThemedView style={styles.flex}>
+      {currentFolderLabel !== null && (
+        <Stack.Screen
+          options={{
+            headerRight: () => (
+              <Pressable onPress={() => setShowFolderPicker(true)} hitSlop={8}>
+                <ThemedText type="defaultSemiBold">{currentFolderLabel}</ThemedText>
+              </Pressable>
+            ),
+          }}
+        />
+      )}
       <RichText
         editor={editor}
         onLoad={() => setEditorLoadGeneration((n) => n + 1)}
@@ -369,6 +508,13 @@ export default function NoteScreen() {
       >
         <Toolbar editor={editor} />
       </KeyboardAvoidingView>
+      <FolderPickerModal
+        visible={showFolderPicker}
+        folders={folders}
+        currentFolderId={folderId}
+        onCancel={() => setShowFolderPicker(false)}
+        onSelect={handleMove}
+      />
     </ThemedView>
   );
 }

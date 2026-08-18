@@ -17,7 +17,9 @@ export default function RootLayout() {
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
       <DatabaseProvider>
         <Stack>
-          <Stack.Screen name="index" options={{ title: "All Notes" }} />
+          <Stack.Screen name="index" options={{ title: "Notes" }} />
+          <Stack.Screen name="notes" options={{ title: "All Notes" }} />
+          <Stack.Screen name="folder/[id]" options={{ title: "" }} />
           <Stack.Screen name="note/[id]" options={{ title: "" }} />
         </Stack>
       </DatabaseProvider>
