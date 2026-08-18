@@ -2,6 +2,14 @@
 
 This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
 
+## ⚠️ Requires a custom Dev Client — Expo Go will not work
+
+This app depends on native modules (`@10play/tentap-editor` for rich-text
+editing, `expo-speech-recognition` for on-device dictation) that aren't
+available in the plain Expo Go sandbox. You must build and run a
+[custom Expo Dev Client](https://docs.expo.dev/develop/development-builds/introduction/)
+instead — see [Get started](#get-started) below.
+
 ## Get started
 
 1. Install dependencies
@@ -10,18 +18,28 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
    npm install
    ```
 
-2. Start the app
+2. Generate the native iOS/Android projects
 
    ```bash
-   npx expo start
+   npx expo prebuild
    ```
 
-In the output, you'll find options to open the app in a
+   This is required at least once, and again any time native config
+   (`app.json` plugins, native dependencies) changes. `ios/` and `android/`
+   are gitignored — they're regenerated, not hand-edited.
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+3. Build and launch the custom dev client
+
+   ```bash
+   npx expo run:ios      # requires Xcode + CocoaPods
+   npx expo run:android  # requires Android Studio/SDK + a JDK
+   ```
+
+   Each command builds the native app and installs it on a connected
+   simulator/emulator or device, then starts Metro. On subsequent runs
+   (once the dev client is installed), `npx expo start` reconnects Metro to
+   the already-installed dev client — no need to rebuild natively every time
+   unless native config changed again.
 
 You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
 
