@@ -1,6 +1,6 @@
 import { Stack, useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
-import { Alert, FlatList, Pressable, StyleSheet } from "react-native";
+import { Alert, FlatList, Pressable, StyleSheet, View } from "react-native";
 
 import { TextPromptModal } from "@/components/text-prompt-modal";
 import { ThemedText } from "@/components/themed-text";
@@ -58,9 +58,19 @@ export default function FoldersScreen() {
         options={{
           title: "Notes",
           headerRight: () => (
-            <Pressable onPress={() => setCreating(true)} hitSlop={8}>
-              <ThemedText type="defaultSemiBold">+ New Folder</ThemedText>
-            </Pressable>
+            <View style={styles.headerActions}>
+              <Pressable
+                onPress={() => router.push("/search")}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel="Search Notes"
+              >
+                <IconSymbol name="magnifyingglass" size={20} color={iconColor} />
+              </Pressable>
+              <Pressable onPress={() => setCreating(true)} hitSlop={8}>
+                <ThemedText type="defaultSemiBold">+ New Folder</ThemedText>
+              </Pressable>
+            </View>
           ),
         }}
       />
@@ -139,6 +149,11 @@ export default function FoldersScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
   },
   row: {
     flexDirection: "row",

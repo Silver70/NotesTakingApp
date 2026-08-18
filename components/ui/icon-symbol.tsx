@@ -18,6 +18,7 @@ const MAPPING = {
   'trash.fill': 'delete',
   'folder.fill': 'folder',
   'ellipsis': 'more-horiz',
+  'magnifyingglass': 'search',
   'checkmark': 'check',
 } as IconMapping;
 
