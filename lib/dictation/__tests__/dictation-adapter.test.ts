@@ -140,6 +140,20 @@ describe('createDictationAdapter', () => {
     expect(onPartial).not.toHaveBeenCalled();
   });
 
+  it('delivers a final result with a legitimately empty transcript, distinct from no result at all', () => {
+    // Ticket 08's consumer resets its own bookkeeping on every final
+    // result — dropping this one (a truthiness check would, since '' is
+    // falsy) would leave that bookkeeping a result stale.
+    const engine = createFakeEngine();
+    const adapter = createDictationAdapter(engine);
+    const onFinal = jest.fn();
+    adapter.onFinalResult(onFinal);
+
+    engine.emitResult({ isFinal: true, results: [{ transcript: '', confidence: 0, segments: [] }] });
+
+    expect(onFinal).toHaveBeenCalledWith({ transcript: '' });
+  });
+
   it('stops delivering results once unsubscribed', () => {
     const engine = createFakeEngine();
     const adapter = createDictationAdapter(engine);

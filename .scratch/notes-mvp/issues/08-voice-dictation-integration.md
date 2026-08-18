@@ -4,12 +4,23 @@
 
 **Blocked by:** 04, 07
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A mic control in the editor starts and stops Dictation
-- [ ] While listening, recognized text appears in the Note live, inserted at the current cursor position — not only appended at the end
-- [ ] Manual typing/formatting is disabled while Dictation is actively listening
-- [ ] Stopping Dictation re-enables manual typing and formatting immediately
-- [ ] Dictated text persists through the same autosave path as typed text — no separate save step
-- [ ] No audio file is created, attached, or persisted at any point
-- [ ] Works with no network connection (on-device recognition only)
+- [x] A mic control in the editor starts and stops Dictation
+- [x] While listening, recognized text appears in the Note live, inserted at the current cursor position — not only appended at the end
+- [x] Manual typing/formatting is disabled while Dictation is actively listening
+- [x] Stopping Dictation re-enables manual typing and formatting immediately
+- [x] Dictated text persists through the same autosave path as typed text — no separate save step
+- [x] No audio file is created, attached, or persisted at any point
+- [x] Works with no network connection (on-device recognition only)
+
+## Comments
+
+Implemented in `app/note/[id].tsx` (mic control + Dictation wiring), `lib/notes/rich-text.ts` (new position-splicing primitives), plus a one-line correctness fix in `lib/dictation/dictation-adapter.ts` (ticket 07).
+
+- **Cursor-position insertion**: TenTap's native bridge only exposes whole-document `setContent`/`setSelection` — no positional "insert text" command — so `rich-text.ts` grew `insertTextAtPosition`/`replaceTextRange`: pure functions that splice text into a serialized ProseMirror doc at a flat position, mirroring real ProseMirror's own position semantics (`Node#nodeSize`, verified against the actual `prosemirror-model` package rather than assumed — see the "true end/start of document" tests). `toDoc`/`EMPTY_DOC` round out the seam for Dictation's own use. 30 new tests in `rich-text.test.ts` cover mid-run insertion, hardBreak/nested-list boundaries, mark preservation, and the doc-start/doc-end edge cases a live cursor can legitimately land on (a plain `docSize` clamp is *not* a safe insertion point there — a real `TextSelection` never resolves to that exact boundary, confirmed against `prosemirror-model`/`prosemirror-state` directly).
+- **Read-only while listening**: `editable: !isListening` passed to `useEditorBridge` — TenTap's own supported toggle, which (confirmed by reading `CoreBridge`'s message handler) still allows `setContent`/`setSelection` to run programmatically even while the DOM itself is non-editable, so Dictation's own writes are unaffected. The Toolbar is additionally force-hidden (`hidden={isListening}`) so formatting controls aren't just inert but not shown at all.
+- **One dictation range, one writer**: `dictationRangeRef` (start position + how much of the in-progress partial has been written) drives `writeDictatedText`, which replaces that range and writes `contentRef`/`editor.setContent` synchronously — deliberately bypassing the async `onChange`→`getJSON()` round trip ticket 04 built, since partials can arrive faster than a WebView bridge round trip resolves. The `onChange` handler gained an `isListeningRef` guard so a straggling pre-dictation `getJSON()` response can't clobber a fresher dictated write.
+- Two independent `/code-review` passes (8 parallel finder agents) surfaced, and this fixed before committing: a crash (`startDictation` destructured `.selection.from` off `getEditorState()`, which is `{}` until the WebView's first state sync — reachable by tapping the mic before ever tapping into an existing Note's text); a data-corruption race (a late partial/final event arriving after `stopDictation()` or after this screen unmounts, with no liveness guard, could splice dictated text into content the user had already resumed typing, or resurrect a Note the leave effect just deleted) — fixed by checking `isListeningRef`/`isUnmountedRef` before every dictated write, with `isListeningRef` set synchronously in `startDictation`/`stopDictation` rather than relying on next-render timing; and a ticket-07 regression this ticket's reliance on final results newly exposed — `dictation-adapter.ts` was dropping a legitimately empty final transcript (`''` is falsy) via a truthiness check, which would leave Dictation's own range-reset bookkeeping a result stale. Also applied from the same review: a hardcoded hex color for the "listening" indicator replaced with a themed `danger` token on `constants/theme.ts` (consolidating it into a token was expected here — see ticket 03's own note on why ad hoc hex pairs don't survive review in this repo), and the dictation adapter instance changed from `useMemo` to `useRef` (must be one instance for the screen's lifetime; `useMemo` only caches, it doesn't promise that).
+- Deliberately deferred, matching ticket 04's own precedent of accepting inherent limits of bridging to a WebView-hosted editor rather than fully closing every timing gap: a trailing final result that races in after `stopDictation()` (or unmount) is dropped rather than applied, so the very last word of an utterance cut off mid-speech by tapping "stop" can be lost — this is what the ticket's own "re-enables manual typing... immediately" requirement asks for, not a bug to paper over. `writeDictatedText` re-parses/re-stringifies the whole document per partial result (flagged as an efficiency concern) — left as is since Notes in this app are short-form and partials are not sub-millisecond-frequency; revisit only if real note lengths make this measurable. New inline JSDoc-recorded architectural extraction (a `hooks/use-dictation.ts`, mirroring `hooks/use-folder-actions.ts`) was considered and skipped: unlike folder actions, this logic isn't reused across screens, and the one seam that actually needed independent test coverage (the position math) is already factored out into `rich-text.ts` and tested there.
+- Full suite: 95/95 tests passing; `tsc --noEmit` and `eslint` both clean. Screen itself remains untested per tickets 03/04's precedent.

@@ -84,8 +84,14 @@ export function createDictationAdapter(engine: DictationEngine): DictationAdapte
       if (event.isFinal !== wantFinal) return;
       // Only the top transcript ever reaches a consumer — confidence,
       // segments, and every other field on the native result stay here.
+      // `!== undefined`, not a truthiness check: a settled utterance can
+      // legitimately produce a final result whose transcript is `''` (e.g.
+      // recognized-then-retracted speech), which a consumer (ticket 08)
+      // needs delivered — a truthiness check would silently drop it,
+      // leaving that consumer's own "what's already been written" bookkeeping
+      // one result stale.
       const transcript = event.results[0]?.transcript;
-      if (transcript) {
+      if (transcript !== undefined) {
         listener({ transcript });
       }
     });

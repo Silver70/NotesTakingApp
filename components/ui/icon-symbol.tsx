@@ -20,6 +20,7 @@ const MAPPING = {
   'ellipsis': 'more-horiz',
   'magnifyingglass': 'search',
   'checkmark': 'check',
+  'mic.fill': 'mic',
 } as IconMapping;
 
 /**
