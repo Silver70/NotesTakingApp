@@ -1,6 +1,7 @@
 import { desc, eq, isNull } from 'drizzle-orm';
 import type { BaseSQLiteDatabase } from 'drizzle-orm/sqlite-core';
 
+import { firstNonBlankLine, toPlainText } from '../lib/notes/rich-text';
 import * as schema from './schema';
 import { folders, notes, type FolderRow, type NoteRow } from './schema';
 
@@ -20,10 +21,12 @@ export class NotFoundError extends Error {
 }
 
 /** A Note's title isn't stored — it's derived from the first non-blank
- * line of its content (Apple Notes-style). See CONTEXT.md ("Note"). */
+ * line of its content (Apple Notes-style). See CONTEXT.md ("Note").
+ * `content` may be a serialized rich-text document (ticket 04) or plain
+ * text (ticket 03) — `toPlainText` reconciles both into one line-per-block
+ * shape before this looks for the first non-blank line. */
 export function deriveTitle(content: string): string {
-  const firstNonBlankLine = content.split('\n').find((line) => line.trim().length > 0);
-  return firstNonBlankLine?.trim() ?? '';
+  return firstNonBlankLine(toPlainText(content));
 }
 
 export type NoteListScope =
@@ -125,15 +128,19 @@ export function createNotesRepository(db: Database): NotesRepository {
       }
       const all = await db.select().from(notes).orderBy(desc(notes.updatedAt));
       return all.filter((note) => {
-        // `title` is always a substring of `body` today (it's literally
-        // `content`'s first non-blank line), so this title check can't
-        // currently change the result — it's kept because the spec calls
-        // out matching title *and* body as two separate criteria, and
-        // that stops being redundant the moment content storage stops
-        // being flat text (see ADR-0001's "Consequences").
-        const title = deriveTitle(note.content).toLowerCase();
-        const body = note.content.toLowerCase();
-        return title.includes(q) || body.includes(q);
+        // `title` is always a substring of `body` (it's literally the
+        // first non-blank line of the same `toPlainText` projection), so
+        // this title check can't currently change the result — it's kept
+        // because the spec calls out matching title *and* body as two
+        // separate criteria. Both must read `toPlainText`, not raw
+        // `content`, now that content can be a serialized rich-text
+        // document (ADR-0001) rather than flat text: matching against the
+        // raw document would both miss plain-text phrases split across
+        // two formatting-mark text nodes and false-positive on words that
+        // only appear in the document's JSON structure (e.g. "bulletlist").
+        const plainText = toPlainText(note.content);
+        const title = firstNonBlankLine(plainText).toLowerCase();
+        return title.includes(q) || plainText.toLowerCase().includes(q);
       });
     },
 

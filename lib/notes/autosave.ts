@@ -1,3 +1,5 @@
+import { toPlainText } from './rich-text';
+
 /**
  * Pure decision logic for the Note editor's autosave/discard behavior
  * (ticket 03). Kept free of React and the repository so the "when do we
@@ -9,8 +11,17 @@
  * repository yet) or already persisted (`noteId` set). See CONTEXT.md
  * ("Resolved behaviors"): a Note with no content is discarded silently if
  * the user navigates away without ever giving it content.
+ *
+ * "Blank" is judged on the content's plain-text projection (`toPlainText`),
+ * not the raw string — TenTap (ticket 04) never persists a literal empty
+ * string for an empty document, it round-trips as a serialized document
+ * with no visible text (e.g. a single empty paragraph node).
  */
 export type NoteDraftState = { noteId: number | null };
+
+function isBlank(content: string): boolean {
+  return toPlainText(content).trim().length === 0;
+}
 
 export type AutosaveAction =
   | { type: "create"; content: string }
@@ -26,7 +37,7 @@ export function decideAutosave(
   state: NoteDraftState,
   content: string,
 ): AutosaveAction {
-  if (content.trim().length === 0) {
+  if (isBlank(content)) {
     return { type: "none" };
   }
   return state.noteId === null
@@ -53,7 +64,7 @@ export function decideOnLeave(
   state: NoteDraftState,
   content: string,
 ): LeaveAction {
-  if (content.trim().length === 0) {
+  if (isBlank(content)) {
     return state.noteId === null
       ? { type: "none" }
       : { type: "delete", noteId: state.noteId };

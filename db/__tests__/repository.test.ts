@@ -256,6 +256,31 @@ describe('Notes repository', () => {
 
       expect(await repo.searchNotes('nonexistent')).toEqual([]);
     });
+
+    it('matches a rich-text note by title and body, not by its JSON structure', async () => {
+      const doc = JSON.stringify({
+        type: 'doc',
+        content: [
+          { type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: 'Groceries' }] },
+          {
+            type: 'bulletList',
+            content: [
+              {
+                type: 'listItem',
+                content: [{ type: 'paragraph', content: [{ type: 'text', text: 'oat milk' }] }],
+              },
+            ],
+          },
+        ],
+      });
+      await repo.createNote({ content: doc });
+
+      expect(await repo.searchNotes('groceries')).toHaveLength(1);
+      expect(await repo.searchNotes('oat milk')).toHaveLength(1);
+      // "bulletList" only appears as a node-type keyword in the raw
+      // document, not as visible text — must not match.
+      expect(await repo.searchNotes('bulletlist')).toEqual([]);
+    });
   });
 
   describe('deriveTitle', () => {
@@ -277,6 +302,24 @@ describe('Notes repository', () => {
 
     it('returns an empty string for whitespace-only content', () => {
       expect(deriveTitle('   \n   \n')).toBe('');
+    });
+
+    it('takes the first block of a rich-text document, e.g. a heading', () => {
+      const doc = JSON.stringify({
+        type: 'doc',
+        content: [
+          { type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: 'Groceries' }] },
+          { type: 'paragraph', content: [{ type: 'text', text: 'milk' }] },
+        ],
+      });
+
+      expect(deriveTitle(doc)).toBe('Groceries');
+    });
+
+    it('returns an empty string for a rich-text document with no visible text', () => {
+      const doc = JSON.stringify({ type: 'doc', content: [{ type: 'paragraph' }] });
+
+      expect(deriveTitle(doc)).toBe('');
     });
   });
 });
