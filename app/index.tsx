@@ -8,7 +8,7 @@ import { NotesList } from "@/components/notes-list";
 import { TextPromptModal } from "@/components/text-prompt-modal";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { BottomNav } from "@/components/ui/bottom-nav";
+import { BottomNav, NAV_ROUTES } from "@/components/ui/bottom-nav";
 import { SearchBarButton } from "@/components/ui/search-bar-button";
 import { useNotesRepository } from "@/db/context";
 import type { FolderRow, NoteRow } from "@/db/schema";
@@ -130,10 +130,7 @@ export default function HomeScreen() {
       />
       <BottomNav
         active="home"
-        onNavigate={(section) => {
-          if (section === "search") router.push("/search");
-          if (section === "tasks") router.push("/tasks");
-        }}
+        onNavigate={(section) => router.push(NAV_ROUTES[section])}
         onAdd={() => router.push("/note/new")}
       />
       <TextPromptModal

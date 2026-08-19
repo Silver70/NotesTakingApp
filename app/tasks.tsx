@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { TasksList, type TaskNote } from "@/components/tasks/tasks-list";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { BottomNav } from "@/components/ui/bottom-nav";
+import { BottomNav, NAV_ROUTES } from "@/components/ui/bottom-nav";
 import { useNotesRepository } from "@/db/context";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { withFolderContext } from "@/lib/notes/search";
@@ -146,10 +146,7 @@ export default function TasksScreen() {
       />
       <BottomNav
         active="tasks"
-        onNavigate={(section) => {
-          if (section === "home") router.push("/");
-          if (section === "search") router.push("/search");
-        }}
+        onNavigate={(section) => router.push(NAV_ROUTES[section])}
         onAdd={() => router.push("/note/new")}
       />
     </ThemedView>

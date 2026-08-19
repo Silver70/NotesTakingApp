@@ -29,6 +29,7 @@ import { useNotesRepository } from "@/db/context";
 import { NotFoundError, type NotesRepository } from "@/db/repository";
 import type { FolderRow } from "@/db/schema";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { usePreferences } from "@/hooks/use-preferences";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import {
   decideAutosave,
@@ -37,6 +38,7 @@ import {
   type LeaveAction,
 } from "@/lib/notes/autosave";
 import { toEditorContent } from "@/lib/notes/rich-text";
+import { noteFontSizePx } from "@/lib/preferences";
 
 const AUTOSAVE_DELAY_MS = 400;
 // The floating formatting Toolbar's fixed height (set via `editorTheme`
@@ -168,7 +170,11 @@ export default function NoteScreen() {
   // recently issued call is applied; any other is a superseded straggler.
   const changeSeqRef = useRef(0);
 
-  const colorScheme = useColorScheme() ?? "light";
+  // `useColorScheme` resolves the user's theme-mode preference against
+  // the device scheme (ticket 09) and always returns a concrete scheme, so
+  // there's nothing to default here.
+  const colorScheme = useColorScheme();
+  const { preferences } = usePreferences();
   const placeholderColor = useThemeColor({}, "placeholder");
   const tintColor = useThemeColor({}, "tint");
   const surfaceColor = useThemeColor({}, "surface");
@@ -217,11 +223,18 @@ export default function NoteScreen() {
   // can't clobber `RichText`'s own `paddingBottom` (set directly via
   // inline style, to grow when the keyboard is up — see
   // node_modules/@10play/tentap-editor's RichText.tsx).
+  // Note body text size (ticket 09) rides the same CSS-injection path as
+  // the editor's colors rather than being an RN style: the note body is a
+  // ProseMirror document inside a WebView, and no React Native style
+  // reaches inside it. Set on `.ProseMirror` itself so headings — sized in
+  // `em` by the WebView's own defaults — scale with the body rather than
+  // staying put while the paragraphs around them move.
   const editorContentCSS = `
     .ProseMirror {
       padding-left: 20px;
       padding-right: 20px;
       padding-top: 16px;
+      font-size: ${noteFontSizePx(preferences.noteTextSize)}px;
     }
   `;
   const editorBodyCSS = `${editorContentCSS}${colorScheme === "dark" ? darkEditorCss : ""}`;

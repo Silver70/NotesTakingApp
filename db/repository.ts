@@ -1,4 +1,4 @@
-import { desc, eq, isNull } from 'drizzle-orm';
+import { count, desc, eq, isNull } from 'drizzle-orm';
 import type { BaseSQLiteDatabase } from 'drizzle-orm/sqlite-core';
 
 import { firstNonBlankLine, toPlainText } from '../lib/notes/rich-text';
@@ -39,15 +39,26 @@ export interface NotesRepository {
   getNote(id: number): Promise<NoteRow | undefined>;
   updateNoteContent(id: number, content: string): Promise<NoteRow>;
   deleteNote(id: number): Promise<void>;
+  /** Permanently deletes every Note. Folders are untouched — deleting a
+   * Folder is a separate action that never deletes Notes, and the reverse
+   * holds here (see CONTEXT.md, "Folder"). Same hard delete as
+   * `deleteNote`, just unfiltered: no Trash, no recovery (ADR-0003), so
+   * callers must confirm with the user first. */
+  deleteAllNotes(): Promise<void>;
   listNotes(scope?: NoteListScope): Promise<NoteRow[]>;
   moveNote(id: number, folderId: number | null): Promise<NoteRow>;
   searchNotes(query: string): Promise<NoteRow[]>;
+  /** How many Notes exist, across every Folder and Unfiled. Counted in
+   * SQL rather than by measuring `listNotes()`, which would drag every
+   * Note's full content across for a number. */
+  countNotes(): Promise<number>;
 
   createFolder(name: string): Promise<FolderRow>;
   getFolder(id: number): Promise<FolderRow | undefined>;
   renameFolder(id: number, name: string): Promise<FolderRow>;
   deleteFolder(id: number): Promise<void>;
   listFolders(): Promise<FolderRow[]>;
+  countFolders(): Promise<number>;
 }
 
 export function createNotesRepository(db: Database): NotesRepository {
@@ -90,6 +101,10 @@ export function createNotesRepository(db: Database): NotesRepository {
 
     async deleteNote(id) {
       await db.delete(notes).where(eq(notes.id, id));
+    },
+
+    async deleteAllNotes() {
+      await db.delete(notes);
     },
 
     async listNotes(scope = { type: 'all' }) {
@@ -144,6 +159,11 @@ export function createNotesRepository(db: Database): NotesRepository {
       });
     },
 
+    async countNotes() {
+      const [row] = await db.select({ value: count() }).from(notes);
+      return row.value;
+    },
+
     async createFolder(name) {
       const [row] = await db.insert(folders).values({ name }).returning();
       return row;
@@ -179,6 +199,11 @@ export function createNotesRepository(db: Database): NotesRepository {
 
     async listFolders() {
       return db.select().from(folders).orderBy(folders.name);
+    },
+
+    async countFolders() {
+      const [row] = await db.select({ value: count() }).from(folders);
+      return row.value;
     },
   };
 }

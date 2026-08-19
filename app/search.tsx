@@ -9,7 +9,7 @@ import {
 } from "@/components/search-results-list";
 import { ThemedView } from "@/components/themed-view";
 import { BackButton } from "@/components/ui/back-button";
-import { BottomNav } from "@/components/ui/bottom-nav";
+import { BottomNav, NAV_ROUTES } from "@/components/ui/bottom-nav";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useNotesRepository } from "@/db/context";
 import type { FolderRow, NoteRow } from "@/db/schema";
@@ -154,10 +154,7 @@ export default function SearchScreen() {
       />
       <BottomNav
         active="search"
-        onNavigate={(section) => {
-          if (section === "home") router.push("/");
-          if (section === "tasks") router.push("/tasks");
-        }}
+        onNavigate={(section) => router.push(NAV_ROUTES[section])}
         onAdd={() => router.push("/note/new")}
       />
     </ThemedView>

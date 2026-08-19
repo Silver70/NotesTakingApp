@@ -1,22 +1,51 @@
+import type { Href } from "expo-router";
 import { Pressable, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useThemeColor } from "@/hooks/use-theme-color";
 
-export type NavSection = "home" | "search" | "tasks";
+export type NavSection = "home" | "search" | "tasks" | "settings";
+
+/** Where each destination lives, owned here beside the buttons themselves
+ * rather than re-derived by every screen that renders the nav — adding a
+ * destination is then one entry here plus one row in `DESTINATIONS`, not
+ * an edit to all five screens. */
+export const NAV_ROUTES: Record<NavSection, Href> = {
+  home: "/",
+  search: "/search",
+  tasks: "/tasks",
+  settings: "/settings",
+};
+
+const DESTINATIONS: {
+  section: NavSection;
+  icon: "house.fill" | "magnifyingglass" | "checklist" | "gearshape.fill";
+  label: string;
+}[] = [
+  { section: "home", icon: "house.fill", label: "Home" },
+  { section: "search", icon: "magnifyingglass", label: "Search" },
+  { section: "tasks", icon: "checklist", label: "Tasks" },
+  { section: "settings", icon: "gearshape.fill", label: "Settings" },
+];
 
 /**
- * The floating bottom chrome shared by Home, Folder-browse, Search, and
- * Tasks (ticket-less UI pass, inspired by the reference in
- * ui-refferences/) — a dark pill holding Home/Search/Tasks, plus a
+ * The floating bottom chrome shared by Home, Folder-browse, Search, Tasks,
+ * and Settings (ticket-less UI pass, inspired by the reference in
+ * ui-refferences/) — a dark pill holding those destinations, plus a
  * separate accent-colored FAB for "new Note". Deliberately absent from
  * the Note editor, which has its own floating back/toolbar chrome
  * instead.
  *
  * The pill's dark background is one of the few colors that stays constant
  * across light/dark app theme (see constants/theme.ts's `navBackground`)
- * so it reads as fixed chrome rather than a themed surface.
+ * so it reads as fixed chrome rather than a themed surface. **Decided in
+ * ticket 09:** an explicit Light theme mode does not change that. The
+ * theme-mode preference chooses between the app's two palettes, and the
+ * pill is deliberately outside both — it's a floating object over the
+ * content, like a keyboard or a system share sheet, not a surface of the
+ * page. Its *accent* does follow the user's choice: the FAB, and the
+ * active destination's backing, both of which are drawn in `tint`.
  */
 export function BottomNav({
   active,
@@ -39,48 +68,34 @@ export function BottomNav({
       pointerEvents="box-none"
     >
       <View style={[styles.pill, { backgroundColor: navBackground }]}>
-        <Pressable
-          onPress={() => onNavigate("home")}
-          hitSlop={10}
-          style={styles.navButton}
-          accessibilityRole="button"
-          accessibilityLabel="Home"
-          accessibilityState={{ selected: active === "home" }}
-        >
-          <IconSymbol
-            name="house.fill"
-            size={22}
-            color={active === "home" ? iconActive : iconInactive}
-          />
-        </Pressable>
-        <Pressable
-          onPress={() => onNavigate("search")}
-          hitSlop={10}
-          style={styles.navButton}
-          accessibilityRole="button"
-          accessibilityLabel="Search"
-          accessibilityState={{ selected: active === "search" }}
-        >
-          <IconSymbol
-            name="magnifyingglass"
-            size={22}
-            color={active === "search" ? iconActive : iconInactive}
-          />
-        </Pressable>
-        <Pressable
-          onPress={() => onNavigate("tasks")}
-          hitSlop={10}
-          style={styles.navButton}
-          accessibilityRole="button"
-          accessibilityLabel="Tasks"
-          accessibilityState={{ selected: active === "tasks" }}
-        >
-          <IconSymbol
-            name="checklist"
-            size={22}
-            color={active === "tasks" ? iconActive : iconInactive}
-          />
-        </Pressable>
+        {DESTINATIONS.map(({ section, icon, label }) => {
+          const selected = section === active;
+          return (
+            <Pressable
+              key={section}
+              // Swallowed rather than routed: pushing the screen the user
+              // is already on would stack a second copy of it behind them.
+              onPress={() => (selected ? undefined : onNavigate(section))}
+              hitSlop={10}
+              style={[styles.navButton, selected && { backgroundColor: accent }]}
+              accessibilityRole="button"
+              accessibilityLabel={label}
+              accessibilityState={{ selected }}
+            >
+              {/* White-on-accent for the active destination, mirroring the
+                  editor toolbar's active button (see `iconWrapperActive`
+                  in app/note/[id].tsx) — the palette's accents are all
+                  picked to carry white, so this reads at any accent, which
+                  an accent-colored icon on the near-black pill would
+                  not. */}
+              <IconSymbol
+                name={icon}
+                size={22}
+                color={selected ? iconActive : iconInactive}
+              />
+            </Pressable>
+          );
+        })}
       </View>
       <Pressable
         onPress={onAdd}
@@ -118,8 +133,9 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   navButton: {
-    width: 48,
-    height: 48,
+    width: 44,
+    height: 44,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
   },

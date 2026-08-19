@@ -4,16 +4,16 @@
 
 **Blocked by:** None outstanding — 02 (repository + schema) and the ticket-less UI pass this builds on are both done.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The bottom nav pill has a third destination, Settings, alongside Home and Search; `NavSection` grows to match and every screen rendering `BottomNav` passes its own `active` value
-- [ ] Settings offers a theme mode choice — System / Light / Dark — that applies immediately across every screen, with no restart or reload
-- [ ] Settings offers an accent color choice from a small fixed palette; the chosen accent drives every `tint`-derived surface (the FAB, active toolbar/nav states, selection) in both light and dark
-- [ ] Theme mode and accent both persist across an app restart
-- [ ] Settings offers a note body text size (at least small / medium / large) that applies in the Note editor
-- [ ] Settings shows the current Note count and Folder count
-- [ ] Settings offers "Delete all Notes", gated behind the same kind of native confirmation as a single-Note delete; it deletes Notes only — Folders are left in place (deleting a Folder is a separate action that never deletes Notes, per CONTEXT.md)
-- [ ] The existing test suite, `tsc --noEmit`, and `eslint` all stay clean
+- [x] The bottom nav pill has a third destination, Settings, alongside Home and Search; `NavSection` grows to match and every screen rendering `BottomNav` passes its own `active` value
+- [x] Settings offers a theme mode choice — System / Light / Dark — that applies immediately across every screen, with no restart or reload
+- [x] Settings offers an accent color choice from a small fixed palette; the chosen accent drives every `tint`-derived surface (the FAB, active toolbar/nav states, selection) in both light and dark
+- [x] Theme mode and accent both persist across an app restart
+- [x] Settings offers a note body text size (at least small / medium / large) that applies in the Note editor
+- [x] Settings shows the current Note count and Folder count
+- [x] Settings offers "Delete all Notes", gated behind the same kind of native confirmation as a single-Note delete; it deletes Notes only — Folders are left in place (deleting a Folder is a separate action that never deletes Notes, per CONTEXT.md)
+- [x] The existing test suite, `tsc --noEmit`, and `eslint` all stay clean
 
 ## Implementation notes
 
@@ -32,3 +32,21 @@
 ## Non-goals
 
 Accounts, login, user profile, cloud backup, or sync. spec.md's Out of Scope and CONTEXT.md's local-first framing both still hold — this screen is device-local preference only. (Extends `.scratch/notes-mvp/spec.md` past the MVP pass; it does not revise it.)
+
+## Comments
+
+Implemented across three new seams — `lib/preferences.ts` (pure domain), `db/settings-repository.ts` (persistence), and `components/preferences-provider.tsx` + `hooks/use-preferences.ts` (the React layer) — plus the new `app/settings.tsx` screen and its three components under `components/settings/`.
+
+- **Where preferences live**, as the ticket asked: a `settings(key, value)` table (migration `0001_fantastic_hannibal_king.sql`) behind its own `createSettingsRepository`, not on `NotesRepository`. Nothing that reads a preference (i.e. the theme, i.e. everything) ends up holding the repository that can delete every Note. Tested against real SQLite in `db/__tests__/settings-repository.test.ts`, same strategy as `repository.test.ts`.
+- **Key/value, not a column per preference**: values are stored as opaque strings and validated on read by `parsePreferences`, so a value that's unrecognised, hand-edited, or left over from a removed option degrades to that preference's default instead of breaking the app. Every function in `lib/preferences.ts` is total for that reason — these values come off disk and drive the theme itself.
+- **The route the preference takes** is `hooks/use-color-scheme.ts` (and its `.web.ts` twin), exactly as the ticket suggested, so no screen learns that a theme-mode preference exists. It now always returns a concrete `'light' | 'dark'` rather than RN's nullable value; the one `?? "light"` call site (the editor) lost its now-dead default.
+- **Accent** is applied by rebuilding the whole palette once at provider level (`buildColors(accent)` in `constants/theme.ts`), not by special-casing `tint` in `useThemeColor` — so the FAB, the editor toolbar's active button, the nav's active destination, and the Settings screen's own controls all pick it up without being touched. `useThemeColor` now serves that palette instead of the static `Colors`.
+- **Load timing / flash**: the ticket suggested starting from the defaults and swapping once loaded. That is what happens above `PreferencesProvider` (`DatabaseProvider`'s own loading and error states render against System + terracotta, which is why the preferences context defaults rather than throwing) — but the provider itself gates on its first load rather than rendering *screens* against the defaults and swapping a frame later, because that swap is the flash. It costs one `select` against an already-open database and extends the loading state migrations were already showing rather than adding a second one.
+- **The nav pill decision (the ticket asked for one)**: the pill stays fixed dark chrome in every theme mode. Picking Light chooses between the app's two *palettes*, and the pill is deliberately outside both — it reads as an object floating over the content, like a keyboard or a share sheet, not as a surface of the page. Its accent does follow the choice: the FAB, and (new here) the active destination's backing, which was previously an unbacked white icon. Recorded in `components/ui/bottom-nav.tsx`'s doc comment.
+- **Editor text size** goes through the existing CSS-injection path (`editorBodyCSS` → the `injectCSS` effect gated on the load-generation counter from ticket 04), not a React Native style — no RN style reaches inside the ProseMirror document. It's set on `.ProseMirror` itself so headings, sized in `em` by the WebView's defaults, scale with the body instead of standing still while the paragraphs around them move.
+- **Delete all Notes** is the same native `Alert.alert` gate a single Note's delete uses, and deletes Notes only — `deleteAllNotes` never touches `folders`, with tests pinning both halves (CONTEXT.md's "Folder", ADR-0003). Counts come from `countNotes`/`countFolders`, counted in SQL rather than by measuring `listNotes()`, which would drag every Note's full content across for a number.
+- **Status bar**: `style="auto"` followed the *device* scheme, which is the one thing an explicit Light/Dark choice overrides — it would have left the status bar dark-on-dark whenever the user's choice disagreed with the OS. Now derived from the resolved scheme.
+- **Found by `/code-review`**: the fourth destination had turned `BottomNav` into four copies of the same button and a four-branch `if` cascade in five screens. The buttons are now one `DESTINATIONS` map, routes live in an exported `NAV_ROUTES` beside them (each screen is one line, a fifth destination costs zero screen edits), and a tap on the destination you're already on is swallowed rather than pushing a second copy of that screen. Also from the review: three icon mappings added but never rendered, an unreachable fallback on a magic index in `noteFontSizePx`, and the `Preference` glossary gap in CONTEXT.md.
+- **Vocabulary**: **Preference** is now a CONTEXT.md glossary term (device-local, no account, not part of a Note or Folder), along with two resolved behaviors — delete-all keeps Folders, and appearance changes apply immediately with no "apply" step.
+- **Tests**: `lib/__tests__/preferences.test.ts` (11 cases: defaults, round-trip, per-field fallback, unknown keys, every accent, System/explicit scheme resolution, text-size ordering) and `db/__tests__/settings-repository.test.ts` (5 cases: fresh install, read-back, independence, upsert-not-append, unrecognised stored value), both written red first; `repository.test.ts` gained 5 for delete-all and the counts. 110/110 passing, `tsc --noEmit` clean, `eslint` reporting only the two warnings that pre-date this ticket, and `expo export --platform ios` bundles.
+- **Not verified on device/simulator**: the checks above are the test suite, typecheck, lint, and a production bundle. Nothing was exercised in a running dev client, so the Settings screen's layout, the swatch tap targets, the live theme swap, and specifically the ticket's "check there's no visible flash of the wrong theme on launch" have not been seen running.

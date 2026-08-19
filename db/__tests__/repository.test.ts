@@ -283,6 +283,52 @@ describe('Notes repository', () => {
     });
   });
 
+  describe('bulk delete and counts', () => {
+    it('deletes every Note, filed and unfiled alike', async () => {
+      const folder = await repo.createFolder('Work');
+      await repo.createNote({ content: 'filed', folderId: folder.id });
+      await repo.createNote({ content: 'unfiled' });
+
+      await repo.deleteAllNotes();
+
+      await expect(repo.listNotes()).resolves.toEqual([]);
+    });
+
+    it('leaves Folders in place when deleting every Note', async () => {
+      const folder = await repo.createFolder('Work');
+      await repo.createNote({ content: 'filed', folderId: folder.id });
+
+      await repo.deleteAllNotes();
+
+      await expect(repo.listFolders()).resolves.toEqual([folder]);
+    });
+
+    it('is a no-op when there are no Notes', async () => {
+      await expect(repo.deleteAllNotes()).resolves.toBeUndefined();
+      await expect(repo.countNotes()).resolves.toBe(0);
+    });
+
+    it('counts Notes and Folders separately', async () => {
+      const folder = await repo.createFolder('Work');
+      await repo.createFolder('Home');
+      await repo.createNote({ content: 'one', folderId: folder.id });
+      await repo.createNote({ content: 'two' });
+
+      await expect(repo.countNotes()).resolves.toBe(2);
+      await expect(repo.countFolders()).resolves.toBe(2);
+    });
+
+    it('drops the Note count back to zero after a delete-all, keeping the Folder count', async () => {
+      await repo.createFolder('Work');
+      await repo.createNote({ content: 'one' });
+
+      await repo.deleteAllNotes();
+
+      await expect(repo.countNotes()).resolves.toBe(0);
+      await expect(repo.countFolders()).resolves.toBe(1);
+    });
+  });
+
   describe('deriveTitle', () => {
     it('takes the first non-blank line', () => {
       expect(deriveTitle('Title here\nbody')).toBe('Title here');
