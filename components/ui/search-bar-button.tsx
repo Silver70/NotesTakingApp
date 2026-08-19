@@ -4,6 +4,12 @@ import { ThemedText } from "@/components/themed-text";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useThemeColor } from "@/hooks/use-theme-color";
 
+/** The bar's fixed height. Exported because Home both pins this bar to
+ * the top of the screen and reserves a gap for it in the list underneath
+ * (app/(tabs)/(home)/index.tsx) — two places that must agree exactly, or
+ * the list's content sits behind the bar or below a visible hole. */
+export const SEARCH_BAR_HEIGHT = 48;
+
 /** The Home screen's search entry point (ticket-less UI pass): reads as a
  * search bar but is really a button — tapping it opens the real, live
  * Search screen (app/search.tsx) rather than searching in place. Mirrors
@@ -32,7 +38,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    height: 48,
+    height: SEARCH_BAR_HEIGHT,
     borderRadius: 24,
     paddingHorizontal: 18,
     borderWidth: StyleSheet.hairlineWidth,
