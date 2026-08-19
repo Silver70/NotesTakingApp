@@ -2,10 +2,13 @@ import {
   darkEditorCss,
   darkEditorTheme,
   defaultEditorTheme,
+  DEFAULT_TOOLBAR_ITEMS,
+  Images,
   RichText,
   TenTapStartKit,
   Toolbar,
   useEditorBridge,
+  type ToolbarItem,
 } from "@10play/tentap-editor";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -21,6 +24,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FolderPickerModal } from "@/components/folder-picker-modal";
+import { FormatColorModal } from "@/components/notes/format-color-modal";
 import { LoadingView } from "@/components/loading-view";
 import {
   SaveStatusIndicator,
@@ -164,6 +168,7 @@ export default function NoteScreen() {
   // for the brief window before the store's first load has resolved.
   const foldersLoaded = useNotesLoaded();
   const [showFolderPicker, setShowFolderPicker] = useState(false);
+  const [showColorPicker, setShowColorPicker] = useState(false);
 
   // Where this screen should appear to grow from — the "+" button that
   // pushed it (components/ui/add-note-button.tsx). Held in state so the
@@ -420,6 +425,51 @@ export default function NoteScreen() {
   // run for this render.
   const editorRef = useRef(editor);
   editorRef.current = editor;
+
+  /**
+   * The stock toolbar plus one button for text colour and highlight.
+   *
+   * Both capabilities are already compiled into TenTap's editor bundle
+   * (`setColor`/`setHighlight`) but missing from `DEFAULT_TOOLBAR_ITEMS`,
+   * so this is only a matter of surfacing them — no custom web bundle,
+   * which is what any *new* editor capability (tables, shapes) would
+   * require, since the bundle is prebuilt and only CSS and a config map
+   * are injected into it at runtime.
+   *
+   * One button rather than two: they are the same decision made twice,
+   * and this toolbar already scrolls horizontally on most phones.
+   */
+  const toolbarItems = useMemo<ToolbarItem[]>(
+    () => [
+      ...DEFAULT_TOOLBAR_ITEMS,
+      {
+        onPress:
+          ({ editor: bridge, editorState }) =>
+          () => {
+            if (Platform.OS === "android") {
+              // Focusing anything outside the editor drops TipTap's
+              // selection on Android, so the colour would land on nothing.
+              // Restoring it on the next tick is the same workaround
+              // TenTap's own link button uses (see its DEFAULT_TOOLBAR_ITEMS).
+              setTimeout(() => {
+                bridge.setSelection(
+                  editorState.selection.from,
+                  editorState.selection.to,
+                );
+              });
+            }
+            setShowColorPicker(true);
+          },
+        active: ({ editorState }) =>
+          Boolean(editorState.activeColor || editorState.activeHighlight),
+        // Never unavailable: clearing a colour is as valid as setting one,
+        // and there is no selection state where neither applies.
+        disabled: () => false,
+        image: () => Images.palette,
+      },
+    ],
+    [],
+  );
 
   // `injectCSS` silently no-ops until the WebView has actually finished
   // its own (internal) page load — for an existing Note, that's a render
@@ -739,9 +789,14 @@ export default function NoteScreen() {
               The pill around it has no intrinsic height, so it collapses
               with it. Passing false pins the bar on screen the way the
               rest of the app's floating chrome is. */}
-          <Toolbar editor={editor} hidden={false} />
+          <Toolbar editor={editor} hidden={false} items={toolbarItems} />
         </View>
       </KeyboardAvoidingView>
+      <FormatColorModal
+        visible={showColorPicker}
+        editor={editor}
+        onClose={() => setShowColorPicker(false)}
+      />
       <FolderPickerModal
         visible={showFolderPicker}
         folders={folders}

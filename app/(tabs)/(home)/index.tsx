@@ -17,8 +17,8 @@ import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { AddNoteButton } from "@/components/ui/add-note-button";
 import {
-  SearchBarButton,
   SEARCH_BAR_HEIGHT,
+  SearchBarButton,
 } from "@/components/ui/search-bar-button";
 import type { NoteRow } from "@/db/schema";
 import { useFolderActions } from "@/hooks/use-folder-actions";
@@ -139,7 +139,8 @@ export default function HomeScreen() {
     ),
   }));
 
-  const { renamingFolder, setRenamingFolder, handleRename, showOptions } = useFolderActions();
+  const { renamingFolder, setRenamingFolder, handleRename, showOptions } =
+    useFolderActions();
 
   const handleCreateFolder = useCallback(
     async (name: string) => {
@@ -187,7 +188,8 @@ export default function HomeScreen() {
         onPress={(note) => router.push(`/note/${note.id}`)}
         onDelete={handleDeleteNote}
         onScroll={onScroll}
-        emptyMessage="No Notes yet — tap the + button to create one."
+        emptyTitle="Nothing written down yet"
+        emptyMessage="Pen's ready when you are, tap + to start your first Note."
         ListHeaderComponent={
           <View style={styles.header}>
             <ThemedText

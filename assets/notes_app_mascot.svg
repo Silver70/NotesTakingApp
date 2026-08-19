@@ -1,0 +1,142 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="paper" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#eef4ff"/>
+    </linearGradient>
+    <linearGradient id="blue" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#76a8ff"/>
+      <stop offset="1" stop-color="#315fb8"/>
+    </linearGradient>
+    <linearGradient id="fold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#a9c8ff"/>
+      <stop offset="1" stop-color="#6f9df0"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="180%">
+      <feGaussianBlur stdDeviation="16"/>
+    </filter>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="5"/>
+    </filter>
+  </defs>
+
+  <!-- Ground shadow -->
+  <ellipse cx="516" cy="872" rx="255" ry="34" fill="#9db8e8" opacity=".22" filter="url(#shadow)"/>
+
+  <!-- Left arm -->
+  <path d="M328 590 C286 600 263 649 279 693 C290 723 316 731 339 714 C360 698 355 666 349 639"
+        fill="none" stroke="#f8fbff" stroke-width="48" stroke-linecap="round"/>
+  <path d="M328 590 C286 600 263 649 279 693 C290 723 316 731 339 714 C360 698 355 666 349 639"
+        fill="none" stroke="#dce9ff" stroke-width="4" stroke-linecap="round"/>
+
+  <!-- Right arm waving -->
+  <path d="M773 601 C819 593 850 561 857 515 C861 487 852 467 834 464
+           C816 461 807 479 803 501
+           C807 470 799 447 781 446
+           C762 445 756 466 756 492
+           C755 462 744 443 727 447
+           C709 451 709 474 715 503
+           C707 479 694 469 679 477
+           C662 487 671 512 684 538
+           C699 568 726 597 773 601Z"
+        fill="url(#paper)" stroke="#dbe7fa" stroke-width="5" stroke-linejoin="round"/>
+
+  <!-- Feet -->
+  <path d="M439 834 C429 867 426 902 447 918 C470 935 530 927 543 900
+           C553 878 536 851 514 836Z" fill="url(#paper)" stroke="#dce8fa" stroke-width="5"/>
+  <path d="M629 836 C618 866 617 901 639 917 C664 934 721 927 733 900
+           C743 878 725 850 704 836Z" fill="url(#paper)" stroke="#dce8fa" stroke-width="5"/>
+
+  <!-- Main note body -->
+  <path d="M300 343
+           C300 303 330 274 370 274
+           H704
+           C726 274 744 282 760 298
+           L837 375
+           C851 389 858 407 858 428
+           V778
+           C858 823 829 849 786 849
+           H373
+           C328 849 300 820 300 776Z"
+        fill="url(#paper)" stroke="#d9e6f9" stroke-width="6"/>
+
+  <!-- Fold -->
+  <path d="M757 299 V410 C757 430 770 442 791 442 H857
+           C855 417 849 397 835 382 L761 306Z"
+        fill="url(#fold)"/>
+
+  <!-- Note lines -->
+  <g stroke="#d9e5f7" stroke-width="7" stroke-linecap="round" opacity=".72">
+    <path d="M397 425 H703"/>
+    <path d="M397 481 H774"/>
+    <path d="M397 537 H757"/>
+    <path d="M397 593 H744"/>
+    <path d="M397 649 H755"/>
+    <path d="M397 705 H704"/>
+  </g>
+
+  <!-- Binder rings -->
+  <g fill="url(#blue)" stroke="#d6e4fb" stroke-width="5">
+    <path d="M287 393 C258 390 245 402 245 420 C245 438 258 450 287 447
+             L338 447 C350 447 359 438 359 420 C359 402 350 393 338 393Z"/>
+    <path d="M287 501 C258 498 245 510 245 528 C245 546 258 558 287 555
+             L338 555 C350 555 359 546 359 528 C359 510 350 501 338 501Z"/>
+    <path d="M287 609 C258 606 245 618 245 636 C245 654 258 666 287 663
+             L338 663 C350 663 359 654 359 636 C359 618 350 609 338 609Z"/>
+    <path d="M287 717 C258 714 245 726 245 744 C245 762 258 774 287 771
+             L338 771 C350 771 359 762 359 744 C359 726 350 717 338 717Z"/>
+  </g>
+
+  <!-- Face -->
+  <path d="M465 517 Q482 502 499 517" fill="none" stroke="#18294e" stroke-width="10" stroke-linecap="round"/>
+  <path d="M657 517 Q674 502 691 517" fill="none" stroke="#18294e" stroke-width="10" stroke-linecap="round"/>
+
+  <ellipse cx="486" cy="568" rx="30" ry="42" fill="#15254b"/>
+  <ellipse cx="673" cy="568" rx="30" ry="42" fill="#15254b"/>
+  <circle cx="476" cy="554" r="8" fill="#fff"/>
+  <circle cx="663" cy="554" r="8" fill="#fff"/>
+
+  <ellipse cx="430" cy="628" rx="35" ry="17" fill="#a9c7ff" opacity=".55" filter="url(#soft)"/>
+  <ellipse cx="728" cy="628" rx="35" ry="17" fill="#a9c7ff" opacity=".55" filter="url(#soft)"/>
+
+  <path d="M568 617 C577 637 610 640 623 618" fill="none"
+        stroke="#17294f" stroke-width="10" stroke-linecap="round"/>
+
+  <!-- Pen -->
+  <g transform="rotate(-8 265 570)">
+    <rect x="220" y="405" width="70" height="335" rx="32" fill="url(#blue)" stroke="#274f98" stroke-width="4"/>
+    <rect x="226" y="396" width="58" height="48" rx="24" fill="#24457f"/>
+    <path d="M220 710 H290 L255 765Z" fill="#193968"/>
+    <path d="M239 437 H271" stroke="#a9c9ff" stroke-width="8" stroke-linecap="round" opacity=".6"/>
+    <rect x="278" y="470" width="17" height="91" rx="8" fill="#d7e6ff" opacity=".55"/>
+  </g>
+
+  <!-- Hand gripping pen -->
+  <path d="M269 599 C247 589 225 596 215 615 C205 635 213 657 233 668
+           C253 679 278 670 287 649 C295 630 289 608 269 599Z"
+        fill="#fff" stroke="#dbe7fa" stroke-width="5"/>
+
+  <!-- Floating UI symbols -->
+  <g fill="none" stroke="#8db2f5" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" opacity=".75">
+    <!-- sparkle -->
+    <path d="M198 248 L207 269 L229 278 L207 287 L198 309 L189 287 L167 278 L189 269Z"/>
+    <!-- text tool -->
+    <rect x="481" y="176" width="101" height="101" rx="15" stroke-dasharray="12 10"/>
+    <path d="M507 203 H558 M532 203 V251"/>
+    <!-- folder -->
+    <path d="M770 226 H816 L832 243 H890 C900 243 907 251 907 261 V326
+             C907 338 900 345 889 345 H765 C754 345 747 338 747 326 V245
+             C747 234 755 226 770 226Z"/>
+    <!-- image -->
+    <rect x="134" y="738" width="72" height="59" rx="8"/>
+    <circle cx="156" cy="756" r="6" fill="#8db2f5" stroke="none"/>
+    <path d="M143 786 L164 766 L177 778 L190 766 L199 786"/>
+    <!-- palette -->
+    <path d="M838 759 C838 718 871 689 911 693 C947 696 973 722 972 756
+             C971 778 957 790 939 789 H924 C914 789 909 798 912 808
+             C915 819 905 829 891 829 C860 829 838 800 838 759Z"/>
+    <circle cx="875" cy="733" r="5" fill="#8db2f5" stroke="none"/>
+    <circle cx="905" cy="720" r="5" fill="#8db2f5" stroke="none"/>
+    <circle cx="934" cy="738" r="5" fill="#8db2f5" stroke="none"/>
+  </g>
+</svg>

@@ -90,7 +90,8 @@ export default function TasksScreen() {
         groups={groups}
         onOpenNote={(note) => router.push(`/note/${note.id}`)}
         onToggle={handleToggle}
-        emptyMessage="No checklist items yet — add a checklist to a Note and its items show up here."
+        emptyTitle="Nothing to tick off"
+        emptyMessage="Add a checklist to any Note and every item gathers here."
         ListHeaderComponent={
           <View style={styles.header}>
             <ThemedText type="largeTitle" style={{ paddingTop: insets.top + 8 }}>

@@ -127,7 +127,8 @@ export default function FolderScreen() {
         notes={notes}
         onPress={(note) => router.push(`/note/${note.id}`)}
         onDelete={handleDelete}
-        emptyMessage="No Notes here yet — tap the + button to create one."
+        emptyTitle="This Folder's empty"
+        emptyMessage={`Nothing filed under ${folder.name} yet — tap + to write something here.`}
       />
       <AddNoteButton onPress={handleNewNote} />
       <TextPromptModal

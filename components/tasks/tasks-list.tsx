@@ -4,6 +4,7 @@ import { FlatList, Pressable, StyleSheet, View } from "react-native";
 
 import { ThemedText } from "@/components/themed-text";
 import { Card } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { deriveTitle } from "@/db/repository";
 import type { NoteRow } from "@/db/schema";
@@ -94,12 +95,16 @@ export function TasksList({
   groups,
   onOpenNote,
   onToggle,
+  emptyTitle,
   emptyMessage,
   ListHeaderComponent,
 }: {
   groups: TaskGroup<TaskNote>[];
   onOpenNote: (note: TaskNote) => void;
   onToggle: (note: TaskNote, task: TaskItem, checked: boolean) => void;
+  /** The heading over the empty state's illustration. */
+  emptyTitle: string;
+  /** The line under it — why the rollup is empty and what fills it. */
   emptyMessage: string;
   ListHeaderComponent?: ComponentType<unknown> | ReactElement | null;
 }) {
@@ -150,7 +155,16 @@ export function TasksList({
           </Card>
         );
       }}
-      ListEmptyComponent={<ThemedText style={styles.empty}>{emptyMessage}</ThemedText>}
+      ListEmptyComponent={
+        // Wrapped in its own flexing view rather than centred by the
+        // content container: `justifyContent` there centres *everything*
+        // inside it, `ListHeaderComponent` included — which left the
+        // "Tasks" title floating mid-screen until the first checklist
+        // existed, then snapping to the top the moment one did.
+        <View style={styles.emptyWrap}>
+          <EmptyState title={emptyTitle} message={emptyMessage} />
+        </View>
+      }
     />
   );
 }
@@ -161,7 +175,12 @@ const styles = StyleSheet.create({
     paddingBottom: 140,
   },
   emptyContent: {
+    // Lets `emptyWrap` below have leftover space to claim, without
+    // centring the header along with it.
     flexGrow: 1,
+  },
+  emptyWrap: {
+    flex: 1,
     justifyContent: "center",
   },
   card: {
@@ -208,9 +227,5 @@ const styles = StyleSheet.create({
   },
   separator: {
     height: 12,
-  },
-  empty: {
-    textAlign: "center",
-    paddingHorizontal: 24,
   },
 });

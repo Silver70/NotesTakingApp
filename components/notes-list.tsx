@@ -5,7 +5,7 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { NoteCard } from "@/components/notes/note-card";
-import { ThemedText } from "@/components/themed-text";
+import { EmptyState } from "@/components/ui/empty-state";
 import type { NoteRow } from "@/db/schema";
 
 /**
@@ -30,6 +30,7 @@ export function NotesList({
   notes,
   onPress,
   onDelete,
+  emptyTitle,
   emptyMessage,
   ListHeaderComponent,
   onScroll,
@@ -37,6 +38,9 @@ export function NotesList({
   notes: NoteRow[];
   onPress: (note: NoteRow) => void;
   onDelete: (note: NoteRow) => void;
+  /** The heading over the empty state's illustration. */
+  emptyTitle: string;
+  /** The line under it — what to do about the emptiness. */
   emptyMessage: string;
   ListHeaderComponent?: ComponentType<unknown> | ReactElement | null;
   /** Reanimated scroll handler, for a caller collapsing a header against
@@ -73,7 +77,7 @@ export function NotesList({
         // Giving the message the leftover space instead centres it without
         // moving the header at all.
         <View style={styles.emptyWrap}>
-          <ThemedText style={styles.empty}>{emptyMessage}</ThemedText>
+          <EmptyState title={emptyTitle} message={emptyMessage} />
         </View>
       }
     />
@@ -97,9 +101,5 @@ const styles = StyleSheet.create({
   },
   separator: {
     height: 12,
-  },
-  empty: {
-    textAlign: "center",
-    paddingHorizontal: 24,
   },
 });
