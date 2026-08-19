@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SearchResultsList } from "@/components/search-results-list";
 import { ThemedView } from "@/components/themed-view";
 import { BackButton } from "@/components/ui/back-button";
-import { BottomNav, NAV_ROUTES } from "@/components/ui/bottom-nav";
+import { AddNoteButton } from "@/components/ui/add-note-button";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import type { NoteRow } from "@/db/schema";
 import { useSearchResults } from "@/hooks/use-notes-store";
@@ -79,11 +79,7 @@ export default function SearchScreen() {
             : "Type to search every Note's title and content."
         }
       />
-      <BottomNav
-        active="home"
-        onNavigate={(section) => router.push(NAV_ROUTES[section])}
-        onAdd={() => router.push("/note/new")}
-      />
+      <AddNoteButton onPress={() => router.push("/note/new")} />
     </ThemedView>
   );
 }

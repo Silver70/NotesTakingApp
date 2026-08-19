@@ -1,3 +1,4 @@
+import * as Haptics from "expo-haptics";
 import { useCallback, useState } from "react";
 import { Alert } from "react-native";
 
@@ -48,6 +49,12 @@ export function useFolderActions({ onDeleted }: { onDeleted?: (folder: FolderRow
           style: "destructive",
           onPress: async () => {
             try {
+              // Same warning tick the Note deletes use — this one is
+              // non-destructive to Notes, but it still removes something
+              // permanently.
+              void Haptics.notificationAsync(
+                Haptics.NotificationFeedbackType.Warning,
+              );
               await deleteFolder(folder.id);
               onDeleted?.(folder);
             } catch (error) {

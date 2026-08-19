@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { TasksList, type TaskNote } from "@/components/tasks/tasks-list";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { BottomNav, NAV_ROUTES } from "@/components/ui/bottom-nav";
+import { AddNoteButton } from "@/components/ui/add-note-button";
 import { useNotesActions, useNotesState } from "@/hooks/use-notes-store";
 import { useStableTaskGroups } from "@/hooks/use-stable-task-groups";
 import { useThemeColor } from "@/hooks/use-theme-color";
@@ -105,11 +105,7 @@ export default function TasksScreen() {
           </View>
         }
       />
-      <BottomNav
-        active="tasks"
-        onNavigate={(section) => router.push(NAV_ROUTES[section])}
-        onAdd={() => router.push("/note/new")}
-      />
+      <AddNoteButton onPress={() => router.push("/note/new")} />
     </ThemedView>
   );
 }

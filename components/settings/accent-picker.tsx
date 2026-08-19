@@ -1,3 +1,4 @@
+import * as Haptics from "expo-haptics";
 import { Pressable, StyleSheet, View } from "react-native";
 
 import { ThemedText } from "@/components/themed-text";
@@ -27,17 +28,21 @@ export function AccentPicker({
   return (
     <View style={styles.row}>
       <ThemedText style={[styles.label, { color: labelColor }]}>{label}</ThemedText>
-      <View style={styles.swatches}>
+      <View style={styles.swatches} accessibilityRole="radiogroup">
         {Accents.map((accent) => {
           const color = accent[scheme];
           const selected = accent.id === value;
           return (
             <Pressable
               key={accent.id}
-              onPress={() => onChange(accent.id)}
+              onPress={() => {
+                if (selected) return;
+                void Haptics.selectionAsync();
+                onChange(accent.id);
+              }}
               style={[styles.swatch, { backgroundColor: color }]}
               hitSlop={6}
-              accessibilityRole="button"
+              accessibilityRole="radio"
               accessibilityLabel={`Accent color: ${accent.label}`}
               accessibilityState={{ selected }}
             >

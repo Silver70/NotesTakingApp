@@ -58,7 +58,17 @@ export function TextPromptModal({
       animationType="fade"
       onRequestClose={onCancel}
     >
-      <View style={styles.backdrop}>
+      {/* The backdrop is the modal's boundary for a screen reader too:
+          `accessibilityViewIsModal` stops VoiceOver from reaching the
+          screen underneath, which is still mounted behind the overlay.
+          Android's TalkBack gets the equivalent from `importantForAccessibility`
+          on the same node. */}
+      <View
+        style={styles.backdrop}
+        accessibilityViewIsModal
+        accessibilityRole="alert"
+        accessibilityLabel={title}
+      >
         <ThemedView style={styles.card}>
           <ThemedText type="defaultSemiBold" style={styles.title}>
             {title}
@@ -75,9 +85,16 @@ export function TextPromptModal({
             autoFocus
             returnKeyType="done"
             onSubmitEditing={submit}
+            accessibilityLabel={title}
           />
           <View style={styles.actions}>
-            <Pressable onPress={onCancel} hitSlop={8} style={styles.cancelButton}>
+            <Pressable
+              onPress={onCancel}
+              hitSlop={8}
+              style={styles.cancelButton}
+              accessibilityRole="button"
+              accessibilityLabel="Cancel"
+            >
               <ThemedText type="defaultSemiBold">Cancel</ThemedText>
             </Pressable>
             <Pressable
@@ -88,6 +105,14 @@ export function TextPromptModal({
                 styles.confirmButton,
                 { backgroundColor: tintColor, opacity: canSubmit ? 1 : 0.4 },
               ]}
+              accessibilityRole="button"
+              accessibilityLabel={confirmLabel}
+              // Communicates the greyed-out state, which `opacity` alone
+              // only conveys to people who can see it.
+              accessibilityState={{ disabled: !canSubmit }}
+              accessibilityHint={
+                canSubmit ? undefined : "Enter a name to continue"
+              }
             >
               <ThemedText type="defaultSemiBold" style={styles.confirmLabel}>
                 {confirmLabel}

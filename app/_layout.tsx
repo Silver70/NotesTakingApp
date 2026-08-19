@@ -49,16 +49,18 @@ function AppShell() {
 
   return (
     <ThemeProvider value={navigationTheme}>
-      {/* Every screen now draws its own header (ticket-less UI pass) —
-          see e.g. components/ui/back-button.tsx — so the native Stack
-          header is off by default here rather than per-screen. */}
+      {/* Every screen draws its own header (ticket-less UI pass) — see
+          e.g. components/ui/back-button.tsx — so the native Stack header
+          is off by default here rather than per-screen.
+
+          Only two entries: the tab navigator holding the app's three
+          destinations, and the Note editor, which sits *outside* it. The
+          editor is pushed over the tabs rather than inside one because it
+          replaces the bottom chrome entirely with its own back button and
+          formatting toolbar, and is reachable from every tab. */}
       <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="index" options={{ title: "Notes" }} />
-        <Stack.Screen name="folder/[id]" options={{ title: "Folder" }} />
+        <Stack.Screen name="(tabs)" />
         <Stack.Screen name="note/[id]" options={{ title: "Note" }} />
-        <Stack.Screen name="search" options={{ title: "Search" }} />
-        <Stack.Screen name="tasks" options={{ title: "Tasks" }} />
-        <Stack.Screen name="settings" options={{ title: "Settings" }} />
       </Stack>
       {/* Not `style="auto"`: that follows the *device* scheme, which is
           the one thing a user picking Light or Dark explicitly is

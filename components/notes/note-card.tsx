@@ -44,8 +44,35 @@ export function NoteCard({
   const placeholder = useThemeColor({}, "placeholder");
   const icon = useThemeColor({}, "icon");
 
+  // The card is one accessibility element, not three: a screen reader
+  // reading "JAN 5" / title / snippet as separate stops turns one Note
+  // into three swipes. The trade-off is that the nested delete button
+  // below becomes unreachable — `Pressable` groups its children — so
+  // delete is re-exposed as an accessibility *action* on the card itself.
+  // The visible button stays exactly as it was for everyone else.
+  const label = [
+    subtitle ?? formatShortDate(note.updatedAt),
+    title,
+    snippet,
+  ]
+    .filter(Boolean)
+    .join(". ");
+
   return (
-    <Pressable onPress={onPress} accessibilityRole="button">
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityHint="Opens this Note"
+      accessibilityActions={
+        onDelete ? [{ name: "delete", label: "Delete Note" }] : undefined
+      }
+      onAccessibilityAction={(event) => {
+        if (event.nativeEvent.actionName === "delete") {
+          onDelete?.();
+        }
+      }}
+    >
       <Card style={styles.card}>
         <View style={styles.header}>
           <ThemedText
@@ -58,8 +85,11 @@ export function NoteCard({
             <Pressable
               onPress={onDelete}
               hitSlop={10}
-              accessibilityRole="button"
-              accessibilityLabel="Delete Note"
+              // Reachable by touch, but deliberately not its own screen-
+              // reader stop — the card groups it, and the `delete`
+              // accessibility action above is how it's actually offered.
+              accessible={false}
+              importantForAccessibility="no"
             >
               <IconSymbol name="trash.fill" size={16} color={icon} />
             </Pressable>

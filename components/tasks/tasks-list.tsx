@@ -1,3 +1,4 @@
+import * as Haptics from "expo-haptics";
 import type { ComponentType, ReactElement } from "react";
 import { FlatList, Pressable, StyleSheet, View } from "react-native";
 
@@ -36,7 +37,13 @@ function TaskRow({
   return (
     <View style={styles.row}>
       <Pressable
-        onPress={() => onToggle(!task.checked)}
+        onPress={() => {
+          // The checkbox fills in on the tap and the row deliberately
+          // doesn't move (see hooks/use-stable-task-groups.ts), so this is
+          // the only physical confirmation that the tap registered.
+          void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          onToggle(!task.checked);
+        }}
         hitSlop={10}
         accessibilityRole="checkbox"
         accessibilityState={{ checked: task.checked }}
@@ -48,7 +55,14 @@ function TaskRow({
           color={task.checked ? accent : icon}
         />
       </Pressable>
-      <Pressable style={styles.rowText} onPress={onOpen} accessibilityRole="button">
+      <Pressable
+        style={styles.rowText}
+        onPress={onOpen}
+        accessibilityRole="button"
+        // Without this the row reads as just its own text, giving no clue
+        // that activating it leaves the Tasks screen entirely.
+        accessibilityLabel={`Open Note containing ${task.text || EMPTY_ITEM_LABEL}`}
+      >
         <ThemedText
           numberOfLines={2}
           style={[

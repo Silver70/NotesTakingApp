@@ -1,3 +1,4 @@
+import * as Haptics from "expo-haptics";
 import { Pressable, StyleSheet, View } from "react-native";
 
 import { ThemedText } from "@/components/themed-text";
@@ -36,15 +37,28 @@ export function ChoiceRow<T extends string>({
   return (
     <View style={styles.row}>
       <ThemedText style={[styles.label, { color: labelColor }]}>{label}</ThemedText>
-      <View style={[styles.track, { backgroundColor: trackColor }]}>
+      {/* `radiogroup` rather than a bare container: these are mutually
+          exclusive options, and it lets a screen reader announce "2 of 3"
+          as the user moves across them. */}
+      <View
+        style={[styles.track, { backgroundColor: trackColor }]}
+        accessibilityRole="radiogroup"
+      >
         {options.map((option) => {
           const selected = option.id === value;
           return (
             <Pressable
               key={option.id}
-              onPress={() => onChange(option.id)}
+              onPress={() => {
+                if (selected) return;
+                // These preferences apply instantly and re-theme the very
+                // screen the user is touching — a selection tick marks the
+                // moment the change lands.
+                void Haptics.selectionAsync();
+                onChange(option.id);
+              }}
               style={[styles.segment, selected && { backgroundColor: accent }]}
-              accessibilityRole="button"
+              accessibilityRole="radio"
               accessibilityLabel={`${label}: ${option.label}`}
               accessibilityState={{ selected }}
             >

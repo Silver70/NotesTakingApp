@@ -1,3 +1,4 @@
+import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { useCallback } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, View } from "react-native";
@@ -8,7 +9,7 @@ import { ChoiceRow } from "@/components/settings/choice-row";
 import { SettingsSection } from "@/components/settings/settings-section";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { BottomNav, NAV_ROUTES } from "@/components/ui/bottom-nav";
+import { AddNoteButton } from "@/components/ui/add-note-button";
 import { useCounts, useNotesActions } from "@/hooks/use-notes-store";
 import { usePreferences } from "@/hooks/use-preferences";
 import { useThemeColor } from "@/hooks/use-theme-color";
@@ -62,6 +63,11 @@ export default function SettingsScreen() {
           style: "destructive",
           onPress: async () => {
             try {
+              // A warning tick at the moment data is actually lost:
+              // deletion here is immediate and irreversible (ADR-0003).
+              void Haptics.notificationAsync(
+                Haptics.NotificationFeedbackType.Warning,
+              );
               await deleteAllNotes();
             } catch (error) {
               console.error("Failed to delete all notes", error);
@@ -134,11 +140,7 @@ export default function SettingsScreen() {
           </ThemedText>
         </SettingsSection>
       </ScrollView>
-      <BottomNav
-        active="settings"
-        onNavigate={(section) => router.push(NAV_ROUTES[section])}
-        onAdd={() => router.push("/note/new")}
-      />
+      <AddNoteButton onPress={() => router.push("/note/new")} />
     </ThemedView>
   );
 }

@@ -1,3 +1,4 @@
+import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { Alert, StyleSheet, View } from "react-native";
@@ -8,7 +9,7 @@ import { NotesList } from "@/components/notes-list";
 import { TextPromptModal } from "@/components/text-prompt-modal";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { BottomNav, NAV_ROUTES } from "@/components/ui/bottom-nav";
+import { AddNoteButton } from "@/components/ui/add-note-button";
 import { SearchBarButton } from "@/components/ui/search-bar-button";
 import type { NoteRow } from "@/db/schema";
 import { useFolderActions } from "@/hooks/use-folder-actions";
@@ -63,6 +64,11 @@ export default function HomeScreen() {
           style: "destructive",
           onPress: async () => {
             try {
+              // A warning tick at the moment data is actually lost:
+              // deletion here is immediate and irreversible (ADR-0003).
+              void Haptics.notificationAsync(
+                Haptics.NotificationFeedbackType.Warning,
+              );
               await deleteNote(note.id);
             } catch (error) {
               console.error("Failed to delete note", error);
@@ -114,11 +120,7 @@ export default function HomeScreen() {
           </View>
         }
       />
-      <BottomNav
-        active="home"
-        onNavigate={(section) => router.push(NAV_ROUTES[section])}
-        onAdd={() => router.push("/note/new")}
-      />
+      <AddNoteButton onPress={() => router.push("/note/new")} />
       <TextPromptModal
         visible={creatingFolder}
         title="New Folder"
