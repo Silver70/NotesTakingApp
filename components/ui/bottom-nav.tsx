@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useThemeColor } from "@/hooks/use-theme-color";
 
-export type NavSection = "home" | "search" | "tasks" | "settings";
+export type NavSection = "home" | "tasks" | "settings";
 
 /** Where each destination lives, owned here beside the buttons themselves
  * rather than re-derived by every screen that renders the nav — adding a
@@ -13,18 +13,16 @@ export type NavSection = "home" | "search" | "tasks" | "settings";
  * an edit to all five screens. */
 export const NAV_ROUTES: Record<NavSection, Href> = {
   home: "/",
-  search: "/search",
   tasks: "/tasks",
   settings: "/settings",
 };
 
 const DESTINATIONS: {
   section: NavSection;
-  icon: "house.fill" | "magnifyingglass" | "checklist" | "gearshape.fill";
+  icon: "house.fill" | "checklist" | "gearshape.fill";
   label: string;
 }[] = [
   { section: "home", icon: "house.fill", label: "Home" },
-  { section: "search", icon: "magnifyingglass", label: "Search" },
   { section: "tasks", icon: "checklist", label: "Tasks" },
   { section: "settings", icon: "gearshape.fill", label: "Settings" },
 ];
@@ -32,10 +30,17 @@ const DESTINATIONS: {
 /**
  * The floating bottom chrome shared by Home, Folder-browse, Search, Tasks,
  * and Settings (ticket-less UI pass, inspired by the reference in
- * ui-refferences/) — a dark pill holding those destinations, plus a
+ * ui-refferences/) — a dark pill holding Home/Tasks/Settings, plus a
  * separate accent-colored FAB for "new Note". Deliberately absent from
  * the Note editor, which has its own floating back/toolbar chrome
  * instead.
+ *
+ * Search is deliberately *not* one of the destinations, though the Search
+ * screen renders this nav like any other: Home already opens it from a
+ * full-width search bar at the top of the screen
+ * (components/ui/search-bar-button.tsx), and a second entry point to the
+ * same global Search bought nothing. Search browses out of Home the way
+ * a Folder does, so both pass `active="home"`.
  *
  * The pill's dark background is one of the few colors that stays constant
  * across light/dark app theme (see constants/theme.ts's `navBackground`)

@@ -153,7 +153,7 @@ export default function SearchScreen() {
         }
       />
       <BottomNav
-        active="search"
+        active="home"
         onNavigate={(section) => router.push(NAV_ROUTES[section])}
         onAdd={() => router.push("/note/new")}
       />

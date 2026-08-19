@@ -6,7 +6,7 @@
 
 **Status:** done
 
-- [x] The bottom nav pill has a third destination, Settings, alongside Home and Search; `NavSection` grows to match and every screen rendering `BottomNav` passes its own `active` value
+- [x] The bottom nav pill has a third destination, Settings, alongside Home and Search; `NavSection` grows to match and every screen rendering `BottomNav` passes its own `active` value _(Search was then removed from the pill as redundant — see Comments)_
 - [x] Settings offers a theme mode choice — System / Light / Dark — that applies immediately across every screen, with no restart or reload
 - [x] Settings offers an accent color choice from a small fixed palette; the chosen accent drives every `tint`-derived surface (the FAB, active toolbar/nav states, selection) in both light and dark
 - [x] Theme mode and accent both persist across an app restart
@@ -50,3 +50,5 @@ Implemented across three new seams — `lib/preferences.ts` (pure domain), `db/s
 - **Vocabulary**: **Preference** is now a CONTEXT.md glossary term (device-local, no account, not part of a Note or Folder), along with two resolved behaviors — delete-all keeps Folders, and appearance changes apply immediately with no "apply" step.
 - **Tests**: `lib/__tests__/preferences.test.ts` (11 cases: defaults, round-trip, per-field fallback, unknown keys, every accent, System/explicit scheme resolution, text-size ordering) and `db/__tests__/settings-repository.test.ts` (5 cases: fresh install, read-back, independence, upsert-not-append, unrecognised stored value), both written red first; `repository.test.ts` gained 5 for delete-all and the counts. 110/110 passing, `tsc --noEmit` clean, `eslint` reporting only the two warnings that pre-date this ticket, and `expo export --platform ios` bundles.
 - **Not verified on device/simulator**: the checks above are the test suite, typecheck, lint, and a production bundle. Nothing was exercised in a running dev client, so the Settings screen's layout, the swatch tap targets, the live theme swap, and specifically the ticket's "check there's no visible flash of the wrong theme on launch" have not been seen running.
+
+- **Follow-up, after the fact**: Search was removed from the nav pill entirely at the user's request — Home already opens the same global Search from a full-width search bar at the top of the screen, so the pill's magnifying glass was a second entry point to one destination. `NavSection` is now Home/Tasks/Settings, and `app/search.tsx` passes `active="home"` like `app/folder/[id].tsx` does: Search browses out of Home the way a Folder does. The tradeoff, accepted: reaching Search from Tasks or Settings is now two taps (Home, then the search bar) rather than one.
