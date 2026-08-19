@@ -60,7 +60,21 @@ function AppShell() {
           formatting toolbar, and is reachable from every tab. */}
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="note/[id]" options={{ title: "Note" }} />
+        <Stack.Screen
+          name="note/[id]"
+          options={{
+            title: "Note",
+            // A cross-fade, not the stock slide-from-right: the editor is
+            // opened by a growing card anchored to the "+" button
+            // (components/ui/zoom-open-overlay.tsx), and a screen sliding
+            // in from the edge at the same time would be a second,
+            // contradictory account of where it came from. Fading lets the
+            // real screen assemble itself invisibly behind that card, and
+            // gives the reverse — the page dissolving — on the way back.
+            animation: "fade",
+            animationDuration: 220,
+          }}
+        />
       </Stack>
       {/* Not `style="auto"`: that follows the *device* scheme, which is
           the one thing a user picking Light or Dark explicitly is

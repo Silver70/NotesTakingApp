@@ -1,9 +1,15 @@
 import * as Haptics from "expo-haptics";
+import { useCallback, useRef } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { IconSymbol } from "@/components/ui/icon-symbol";
+import type { ZoomOrigin } from "@/components/ui/zoom-open-overlay";
 import { useThemeColor } from "@/hooks/use-theme-color";
+
+/** Half the FAB's 56pt box — the radius the open animation grows from, so
+ * the card starts out exactly this button rather than near it. */
+const FAB_RADIUS = 28;
 
 /**
  * The floating "new Note" button, sitting to the right of the navigation
@@ -20,10 +26,39 @@ import { useThemeColor } from "@/hooks/use-theme-color";
  * The two are aligned by rule rather than by layout: both are absolutely
  * positioned against the same 20pt side margins and the same
  * `insets.bottom + 12`, so they line up without either owning the other.
+ *
+ * Hands its own on-screen position to `onPress` so the editor can appear
+ * to grow out of it (components/ui/zoom-open-overlay.tsx). Measured at
+ * press time rather than cached from layout: the button moves with the
+ * safe-area inset and the keyboard, and a stale position would start the
+ * animation somewhere the user didn't tap.
  */
-export function AddNoteButton({ onPress }: { onPress: () => void }) {
+export function AddNoteButton({
+  onPress,
+}: {
+  onPress: (origin: ZoomOrigin) => void;
+}) {
   const insets = useSafeAreaInsets();
   const accent = useThemeColor({}, "tint");
+  const buttonRef = useRef<View>(null);
+
+  const handlePress = useCallback(() => {
+    // Creating a Note is the app's primary action and takes the user to a
+    // new screen — worth a light tap of confirmation, the same weight the
+    // checklist toggle uses.
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    const node = buttonRef.current;
+    if (!node) {
+      // Navigate from the screen's centre rather than not at all — a
+      // missing ref is not a reason to drop the user's tap.
+      onPress({ x: 0, y: 0, radius: FAB_RADIUS });
+      return;
+    }
+    node.measureInWindow((x, y, width, height) => {
+      onPress({ x: x + width / 2, y: y + height / 2, radius: FAB_RADIUS });
+    });
+  }, [onPress]);
 
   return (
     <View
@@ -31,13 +66,8 @@ export function AddNoteButton({ onPress }: { onPress: () => void }) {
       pointerEvents="box-none"
     >
       <Pressable
-        onPress={() => {
-          // Creating a Note is the app's primary action and takes the user
-          // to a new screen — worth a light tap of confirmation, the same
-          // weight the checklist toggle uses.
-          void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          onPress();
-        }}
+        ref={buttonRef}
+        onPress={handlePress}
         style={[styles.fab, { backgroundColor: accent }]}
         hitSlop={8}
         accessibilityRole="button"

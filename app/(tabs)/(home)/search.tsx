@@ -7,6 +7,7 @@ import { SearchResultsList } from "@/components/search-results-list";
 import { ThemedView } from "@/components/themed-view";
 import { BackButton } from "@/components/ui/back-button";
 import { AddNoteButton } from "@/components/ui/add-note-button";
+import { toZoomParams } from "@/lib/zoom-origin";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import type { NoteRow } from "@/db/schema";
 import { useSearchResults } from "@/hooks/use-notes-store";
@@ -79,7 +80,14 @@ export default function SearchScreen() {
             : "Type to search every Note's title and content."
         }
       />
-      <AddNoteButton onPress={() => router.push("/note/new")} />
+      <AddNoteButton
+        onPress={(origin) =>
+          router.push({
+            pathname: "/note/[id]",
+            params: { id: "new", ...toZoomParams(origin) },
+          })
+        }
+      />
     </ThemedView>
   );
 }

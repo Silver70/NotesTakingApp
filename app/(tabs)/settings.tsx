@@ -10,6 +10,7 @@ import { SettingsSection } from "@/components/settings/settings-section";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { AddNoteButton } from "@/components/ui/add-note-button";
+import { toZoomParams } from "@/lib/zoom-origin";
 import { useCounts, useNotesActions } from "@/hooks/use-notes-store";
 import { usePreferences } from "@/hooks/use-preferences";
 import { useThemeColor } from "@/hooks/use-theme-color";
@@ -140,7 +141,14 @@ export default function SettingsScreen() {
           </ThemedText>
         </SettingsSection>
       </ScrollView>
-      <AddNoteButton onPress={() => router.push("/note/new")} />
+      <AddNoteButton
+        onPress={(origin) =>
+          router.push({
+            pathname: "/note/[id]",
+            params: { id: "new", ...toZoomParams(origin) },
+          })
+        }
+      />
     </ThemedView>
   );
 }

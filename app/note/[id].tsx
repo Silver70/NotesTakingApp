@@ -29,6 +29,7 @@ import {
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { BackButton } from "@/components/ui/back-button";
+import { ZoomOpenOverlay } from "@/components/ui/zoom-open-overlay";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useNotesRepository } from "@/db/context";
 import { NotFoundError } from "@/db/repository";
@@ -44,6 +45,7 @@ import {
 } from "@/lib/notes/autosave";
 import { toEditorContent } from "@/lib/notes/rich-text";
 import { noteFontSizePx } from "@/lib/preferences";
+import { parseZoomOrigin } from "@/lib/zoom-origin";
 
 const AUTOSAVE_DELAY_MS = 400;
 // How long the "saved" tick lingers before the header goes quiet again.
@@ -115,9 +117,16 @@ async function applyAction(
 }
 
 export default function NoteScreen() {
-  const { id, folderId: folderIdParam } = useLocalSearchParams<{
+  const {
+    id,
+    folderId: folderIdParam,
+    ...zoomParams
+  } = useLocalSearchParams<{
     id: string;
     folderId?: string;
+    zoomX?: string;
+    zoomY?: string;
+    zoomR?: string;
   }>();
   const isNewNote = id === "new";
   const numericId = isNewNote ? null : Number(id);
@@ -155,6 +164,13 @@ export default function NoteScreen() {
   // for the brief window before the store's first load has resolved.
   const foldersLoaded = useNotesLoaded();
   const [showFolderPicker, setShowFolderPicker] = useState(false);
+
+  // Where this screen should appear to grow from — the "+" button that
+  // pushed it (components/ui/add-note-button.tsx). Held in state so the
+  // overlay can be dropped once it has played; read once from the route
+  // rather than watched, since a push's origin never changes under it.
+  const [zoomOrigin, setZoomOrigin] = useState(() => parseZoomOrigin(zoomParams));
+  const clearZoomOrigin = useCallback(() => setZoomOrigin(null), []);
 
   // Mutable, not state: these back the autosave/leave decisions and must
   // reflect the latest value synchronously (from the debounce timer and
@@ -733,6 +749,13 @@ export default function NoteScreen() {
         onCancel={() => setShowFolderPicker(false)}
         onSelect={handleMove}
       />
+      {zoomOrigin && (
+        <ZoomOpenOverlay
+          origin={zoomOrigin}
+          color={editorSurfaceColor}
+          onFinished={clearZoomOrigin}
+        />
+      )}
     </ThemedView>
   );
 }

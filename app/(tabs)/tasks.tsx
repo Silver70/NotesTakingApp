@@ -7,6 +7,7 @@ import { TasksList, type TaskNote } from "@/components/tasks/tasks-list";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { AddNoteButton } from "@/components/ui/add-note-button";
+import { toZoomParams } from "@/lib/zoom-origin";
 import { useNotesActions, useNotesState } from "@/hooks/use-notes-store";
 import { useStableTaskGroups } from "@/hooks/use-stable-task-groups";
 import { useThemeColor } from "@/hooks/use-theme-color";
@@ -105,7 +106,14 @@ export default function TasksScreen() {
           </View>
         }
       />
-      <AddNoteButton onPress={() => router.push("/note/new")} />
+      <AddNoteButton
+        onPress={(origin) =>
+          router.push({
+            pathname: "/note/[id]",
+            params: { id: "new", ...toZoomParams(origin) },
+          })
+        }
+      />
     </ThemedView>
   );
 }

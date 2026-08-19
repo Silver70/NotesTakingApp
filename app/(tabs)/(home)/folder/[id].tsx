@@ -11,7 +11,9 @@ import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { BackButton } from "@/components/ui/back-button";
 import { AddNoteButton } from "@/components/ui/add-note-button";
+import { toZoomParams } from "@/lib/zoom-origin";
 import { IconSymbol } from "@/components/ui/icon-symbol";
+import type { ZoomOrigin } from "@/components/ui/zoom-open-overlay";
 import type { NoteRow } from "@/db/schema";
 import { useFolderActions } from "@/hooks/use-folder-actions";
 import { useFolderView, useNotesActions } from "@/hooks/use-notes-store";
@@ -48,12 +50,19 @@ export default function FolderScreen() {
     onDeleted: () => router.back(),
   });
 
-  const handleNewNote = useCallback(() => {
-    router.push({
-      pathname: "/note/[id]",
-      params: { id: "new", folderId: String(folderId) },
-    });
-  }, [router, folderId]);
+  const handleNewNote = useCallback(
+    (origin: ZoomOrigin) => {
+      router.push({
+        pathname: "/note/[id]",
+        params: {
+          id: "new",
+          folderId: String(folderId),
+          ...toZoomParams(origin),
+        },
+      });
+    },
+    [router, folderId],
+  );
 
   const handleDelete = useCallback(
     (note: NoteRow) => {

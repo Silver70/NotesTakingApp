@@ -10,6 +10,7 @@ import { TextPromptModal } from "@/components/text-prompt-modal";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { AddNoteButton } from "@/components/ui/add-note-button";
+import { toZoomParams } from "@/lib/zoom-origin";
 import { SearchBarButton } from "@/components/ui/search-bar-button";
 import type { NoteRow } from "@/db/schema";
 import { useFolderActions } from "@/hooks/use-folder-actions";
@@ -120,7 +121,14 @@ export default function HomeScreen() {
           </View>
         }
       />
-      <AddNoteButton onPress={() => router.push("/note/new")} />
+      <AddNoteButton
+        onPress={(origin) =>
+          router.push({
+            pathname: "/note/[id]",
+            params: { id: "new", ...toZoomParams(origin) },
+          })
+        }
+      />
       <TextPromptModal
         visible={creatingFolder}
         title="New Folder"
