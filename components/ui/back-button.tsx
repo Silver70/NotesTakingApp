@@ -5,15 +5,26 @@ import { useThemeColor } from "@/hooks/use-theme-color";
 
 /** A circular floating back button, replacing the native Stack header's
  * back chevron on every screen that now draws its own header (ticket-less
- * UI pass). */
-export function BackButton({ onPress }: { onPress: () => void }) {
+ * UI pass).
+ *
+ * `backgroundColor` overrides the default `surface` fill for screens whose
+ * own background is already `surface` — the Note editor, whose header
+ * blends into the page — where the default would leave the button
+ * invisible but for its shadow. */
+export function BackButton({
+  onPress,
+  backgroundColor,
+}: {
+  onPress: () => void;
+  backgroundColor?: string;
+}) {
   const surface = useThemeColor({}, "surface");
   const textColor = useThemeColor({}, "text");
 
   return (
     <Pressable
       onPress={onPress}
-      style={[styles.button, { backgroundColor: surface }]}
+      style={[styles.button, { backgroundColor: backgroundColor ?? surface }]}
       hitSlop={8}
       accessibilityRole="button"
       accessibilityLabel="Go back"

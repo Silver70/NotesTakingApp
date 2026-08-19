@@ -47,7 +47,7 @@ export function FoldersRow({
           accessibilityHint="Double tap and hold for rename or delete options"
         >
           <View style={[styles.iconBubble, { backgroundColor: surface }]}>
-            <IconSymbol name="folder.fill" size={18} color={tint} />
+            <IconSymbol name="folder.fill" size={22} color={tint} />
           </View>
           <ThemedText numberOfLines={1} style={styles.chipLabel}>
             {item.name}

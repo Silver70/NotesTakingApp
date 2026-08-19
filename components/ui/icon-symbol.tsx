@@ -27,6 +27,7 @@ const MAPPING = {
   'circle': 'radio-button-unchecked',
   'checkmark.circle.fill': 'check-circle',
   'gearshape.fill': 'settings',
+  'exclamationmark.triangle.fill': 'warning',
 } as IconMapping;
 
 /**

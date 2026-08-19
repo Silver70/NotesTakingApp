@@ -22,6 +22,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FolderPickerModal } from "@/components/folder-picker-modal";
 import { LoadingView } from "@/components/loading-view";
+import {
+  SaveStatusIndicator,
+  type SaveStatus,
+} from "@/components/notes/save-status";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { BackButton } from "@/components/ui/back-button";
@@ -42,6 +46,8 @@ import { toEditorContent } from "@/lib/notes/rich-text";
 import { noteFontSizePx } from "@/lib/preferences";
 
 const AUTOSAVE_DELAY_MS = 400;
+// How long the "saved" tick lingers before the header goes quiet again.
+const SAVED_INDICATOR_MS = 1600;
 // The floating formatting Toolbar's fixed height (set via `editorTheme`
 // below).
 const TOOLBAR_HEIGHT = 56;
@@ -179,7 +185,7 @@ export default function NoteScreen() {
   const placeholderColor = useThemeColor({}, "placeholder");
   const tintColor = useThemeColor({}, "tint");
   const surfaceColor = useThemeColor({}, "surface");
-  const backgroundColor = useThemeColor({}, "background");
+  const surfaceAltColor = useThemeColor({}, "surfaceAlt");
   const navBackgroundColor = useThemeColor({}, "navBackground");
   const navIconInactiveColor = useThemeColor({}, "navIconInactive");
   // `theme` only covers the WebView's own background and the (native,
@@ -198,6 +204,19 @@ export default function NoteScreen() {
   // constant since `darkEditorCss` below hard-codes text/background
   // together and re-deriving both to match this app's exact dark surface
   // isn't worth the risk of a mismatched, hard-to-read pairing.
+  // The color the note body itself is painted in: this app's surface in
+  // light mode, TenTap's own dark constant in dark (read back off its
+  // theme with `flatten` rather than re-typed here, so the two can't
+  // drift). The screen behind the editor uses this rather than the app's
+  // `background` token, so the header above the editor blends into the
+  // page instead of sitting on a visibly different band — the note reads
+  // as one continuous sheet, Apple Notes-style, with the back button and
+  // Folder pill floating over it.
+  const editorSurfaceColor =
+    (colorScheme === "dark"
+      ? StyleSheet.flatten(darkEditorTheme.webview)?.backgroundColor
+      : surfaceColor) ?? surfaceColor;
+
   const editorTheme = useMemo(() => {
     const base = colorScheme === "dark" ? darkEditorTheme : defaultEditorTheme;
     return {
@@ -280,12 +299,30 @@ export default function NoteScreen() {
   );
 
   const enqueueSave = useCallback((run: () => Promise<void>) => {
-    saveChainRef.current = saveChainRef.current.then(run).catch((error) => {
-      console.error("Note autosave failed", error);
-    });
+    pendingSavesRef.current += 1;
+    let failed = false;
+    saveChainRef.current = saveChainRef.current
+      .then(run)
+      .catch((error) => {
+        console.error("Note autosave failed", error);
+        failed = true;
+      })
+      .finally(() => {
+        pendingSavesRef.current -= 1;
+        // The leave decision is queued from the unmount cleanup, so the
+        // last link in this chain routinely settles after this screen is
+        // gone — there's no state left to report it to.
+        if (isUnmountedRef.current) return;
+        if (failed) {
+          setSaveStatus("failed");
+        } else if (pendingSavesRef.current === 0) {
+          setSaveStatus("saved");
+        }
+      });
   }, []);
 
   const scheduleSave = useCallback(() => {
+    setSaveStatus("saving");
     if (saveTimerRef.current) {
       clearTimeout(saveTimerRef.current);
     }
@@ -380,6 +417,27 @@ export default function NoteScreen() {
   // edge. iOS gets the `will` events so the bar's margin changes on the
   // same beat as `KeyboardAvoidingView`'s padding animation; Android only
   // has the `did` pair.
+  // There is no Save button — edits land via the debounced autosave below
+  // — so this is the only signal the user gets that their typing reached
+  // disk. `saving` is set the moment an edit is registered (not when the
+  // write finally starts), so the indicator covers the debounce window
+  // too: from the user's side that whole stretch is "not saved yet".
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+  // Counts writes queued but not yet settled, so the status only falls
+  // back to `saved` once the chain has actually drained — with a second
+  // edit chained behind the first, the first one finishing doesn't mean
+  // the Note is up to date.
+  const pendingSavesRef = useRef(0);
+
+  // `saved` is an acknowledgement, not a state worth keeping on screen —
+  // it clears itself so the header goes quiet again while the user reads
+  // what they wrote. `failed` deliberately doesn't (see save-status.tsx).
+  useEffect(() => {
+    if (saveStatus !== "saved") return;
+    const timer = setTimeout(() => setSaveStatus("idle"), SAVED_INDICATOR_MS);
+    return () => clearTimeout(timer);
+  }, [saveStatus]);
+
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   useEffect(() => {
     const isIOS = Platform.OS === "ios";
@@ -587,31 +645,44 @@ export default function NoteScreen() {
       : (folders.find((folder) => folder.id === folderId)?.name ?? "Unfiled");
 
   return (
-    <ThemedView style={[styles.flex, { backgroundColor }]}>
+    <ThemedView style={[styles.flex, { backgroundColor: editorSurfaceColor }]}>
       {/* Replaces the native Stack header (ticket-less UI pass): a
-          floating back button, plus — once an already-persisted Note's
-          Folder is known (see `currentFolderLabel` above) — a pill
-          showing it that opens the same Move-to-Folder picker the
-          native header's text link used to. */}
+          floating back button, the autosave indicator, plus — once an
+          already-persisted Note's Folder is known (see
+          `currentFolderLabel` above) — a pill showing it that opens the
+          same Move-to-Folder picker the native header's text link used
+          to.
+
+          No background of its own: it sits directly on the same color as
+          the note body (see `editorSurfaceColor`). Its controls take
+          `surfaceAlt` rather than the usual `surface`, which is now the
+          page behind them and would leave them invisible but for their
+          shadows. */}
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <BackButton onPress={() => router.back()} />
-        {currentFolderLabel !== null && (
-          <Pressable
-            onPress={() => setShowFolderPicker(true)}
-            style={[styles.folderPill, { backgroundColor: surfaceColor }]}
-            hitSlop={8}
-            accessibilityRole="button"
-          >
-            <IconSymbol name="folder.fill" size={14} color={tintColor} />
-            <ThemedText
-              type="defaultSemiBold"
-              style={styles.folderPillLabel}
-              numberOfLines={1}
+        <BackButton
+          onPress={() => router.back()}
+          backgroundColor={surfaceAltColor}
+        />
+        <View style={styles.headerRight}>
+          <SaveStatusIndicator status={saveStatus} />
+          {currentFolderLabel !== null && (
+            <Pressable
+              onPress={() => setShowFolderPicker(true)}
+              style={[styles.folderPill, { backgroundColor: surfaceAltColor }]}
+              hitSlop={8}
+              accessibilityRole="button"
             >
-              {currentFolderLabel}
-            </ThemedText>
-          </Pressable>
-        )}
+              <IconSymbol name="folder.fill" size={14} color={tintColor} />
+              <ThemedText
+                type="defaultSemiBold"
+                style={styles.folderPillLabel}
+                numberOfLines={1}
+              >
+                {currentFolderLabel}
+              </ThemedText>
+            </Pressable>
+          )}
+        </View>
       </View>
       <RichText
         editor={editor}
@@ -678,6 +749,11 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 20,
     paddingBottom: 12,
+  },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
   },
   folderPill: {
     flexDirection: "row",
