@@ -24,6 +24,7 @@ export default function RootLayout() {
           <Stack.Screen name="folder/[id]" options={{ title: "Folder" }} />
           <Stack.Screen name="note/[id]" options={{ title: "Note" }} />
           <Stack.Screen name="search" options={{ title: "Search" }} />
+          <Stack.Screen name="tasks" options={{ title: "Tasks" }} />
         </Stack>
       </DatabaseProvider>
       <StatusBar style="auto" />

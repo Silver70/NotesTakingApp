@@ -30,17 +30,18 @@ import { NotFoundError, type NotesRepository } from "@/db/repository";
 import type { FolderRow } from "@/db/schema";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useThemeColor } from "@/hooks/use-theme-color";
-import type { DictationError } from "@/lib/dictation/dictation-adapter";
-import { createNativeDictationAdapter } from "@/lib/dictation/native-engine";
 import {
   decideAutosave,
   decideOnLeave,
   type AutosaveAction,
   type LeaveAction,
 } from "@/lib/notes/autosave";
-import { replaceTextRange, toDoc, toEditorContent } from "@/lib/notes/rich-text";
+import { toEditorContent } from "@/lib/notes/rich-text";
 
 const AUTOSAVE_DELAY_MS = 400;
+// The floating formatting Toolbar's fixed height (set via `editorTheme`
+// below).
+const TOOLBAR_HEIGHT = 56;
 
 /** Parses the `folderId` route param a new Note is created from (ticket
  * 05) — present and numeric when opened via "+ New Note" from inside a
@@ -132,10 +133,6 @@ export default function NoteScreen() {
   // for the brief window before its real Folder's name has loaded.
   const [foldersLoaded, setFoldersLoaded] = useState(false);
   const [showFolderPicker, setShowFolderPicker] = useState(false);
-  // Ticket 08: whether Dictation is actively listening — drives the
-  // editor's `editable` flag (manual typing/formatting disabled while
-  // true) and the Toolbar's visibility.
-  const [isListening, setIsListening] = useState(false);
 
   // Mutable, not state: these back the autosave/leave decisions and must
   // reflect the latest value synchronously (from the debounce timer and
@@ -170,43 +167,10 @@ export default function NoteScreen() {
   // `contentRef` with stale content. Only the response matching the most
   // recently issued call is applied; any other is a superseded straggler.
   const changeSeqRef = useRef(0);
-  // Mirrors `isListening`, but settable *outside* React's render cycle —
-  // the `onChange` handler below and Dictation's own partial/final
-  // callbacks all fire asynchronously and need the current value the
-  // instant `startDictation`/`stopDictation` decide it, not whatever it
-  // was as of this component's last completed render (assigning during
-  // render, the way `editorRef` does, would still leave a window where a
-  // stray callback firing *before* the next render sees a stale value —
-  // see `stopDictation`, which sets this synchronously for exactly that
-  // reason).
-  const isListeningRef = useRef(false);
-  // Ticket 08 (Dictation): the flat ProseMirror position where the
-  // *current* utterance's dictated text begins, and how many characters of
-  // its latest partial result have been written so far — one object so
-  // the two always move together (see `startDictation`/`handleDictationResult`
-  // below; nothing ever reads or resets just one half). Together they mark
-  // exactly the range `writeDictatedText` replaces as speech recognition
-  // refines its guess — reset in `startDictation`, then advanced past the
-  // just-settled text (and zeroed) once a result is final, so the next
-  // utterance starts fresh right after it instead of re-deleting
-  // already-settled words. A mutable ref, not state: Dictation's own
-  // partial/final callbacks fire outside React's render cycle and must
-  // read/write the latest value synchronously.
-  const dictationRangeRef = useRef({ start: 0, insertedLength: 0 });
-  // A ref, not `useMemo`: this has to be *one instance* for the whole
-  // screen's lifetime (the effect below subscribes listeners to it, and
-  // every handler closes over it) — `useMemo` only caches, it doesn't
-  // promise React won't recompute it, so it's the wrong tool for something
-  // that must never silently become a second instance mid-session.
-  // Constructing it has no side effects of its own (no listener attached,
-  // no microphone touched) until `start()`/`onPartialResult` etc. below
-  // are actually called.
-  const dictationAdapter = useRef(createNativeDictationAdapter()).current;
 
   const colorScheme = useColorScheme() ?? "light";
   const placeholderColor = useThemeColor({}, "placeholder");
   const tintColor = useThemeColor({}, "tint");
-  const dangerColor = useThemeColor({}, "danger");
   const surfaceColor = useThemeColor({}, "surface");
   const backgroundColor = useThemeColor({}, "background");
   const navBackgroundColor = useThemeColor({}, "navBackground");
@@ -236,7 +200,7 @@ export default function NoteScreen() {
         ...base.toolbar,
         toolbarBody: [
           base.toolbar.toolbarBody,
-          { backgroundColor: navBackgroundColor, borderTopWidth: 0, borderBottomWidth: 0, height: 56 },
+          { backgroundColor: navBackgroundColor, borderTopWidth: 0, borderBottomWidth: 0, height: TOOLBAR_HEIGHT },
         ],
         toolbarButton: [base.toolbar.toolbarButton, { backgroundColor: navBackgroundColor }],
         iconWrapper: [base.toolbar.iconWrapper, { backgroundColor: navBackgroundColor, borderRadius: 10 }],
@@ -246,7 +210,21 @@ export default function NoteScreen() {
       },
     };
   }, [colorScheme, surfaceColor, navBackgroundColor, tintColor, navIconInactiveColor]);
-  const editorBodyCSS = colorScheme === "dark" ? darkEditorCss : "";
+  // TenTap's editor document has no inset of its own — text runs flush to
+  // the WebView's edges without this. Targets `.ProseMirror` (the editable
+  // element itself) rather than `body`, and only sets individual
+  // left/right/top properties rather than the `padding` shorthand, so it
+  // can't clobber `RichText`'s own `paddingBottom` (set directly via
+  // inline style, to grow when the keyboard is up — see
+  // node_modules/@10play/tentap-editor's RichText.tsx).
+  const editorContentCSS = `
+    .ProseMirror {
+      padding-left: 20px;
+      padding-right: 20px;
+      padding-top: 16px;
+    }
+  `;
+  const editorBodyCSS = `${editorContentCSS}${colorScheme === "dark" ? darkEditorCss : ""}`;
   const placeholderCSS = `
     .is-editor-empty:first-child::before {
       color: ${placeholderColor};
@@ -329,12 +307,6 @@ export default function NoteScreen() {
     bridgeExtensions,
     initialContent: editorInitialContent,
     theme: editorTheme,
-    // Ticket 08: TenTap's own read-only toggle. While Dictation is
-    // listening this blocks manual typing at the ProseMirror/DOM level
-    // (independent of the Toolbar being hidden below, which only stops
-    // *tapping a formatting control* — this stops *typing* too), and
-    // flips back the instant `isListening` does.
-    editable: !isListening,
     onChange: () => {
       // `onChange` only fires from TenTap's own content-changed event (not
       // selection/focus updates), so this mirrors ticket 03's
@@ -350,13 +322,6 @@ export default function NoteScreen() {
           // otherwise clobber it with stale content — see changeSeqRef's
           // declaration above.
           if (seq !== changeSeqRef.current) return;
-          // While Dictation is listening, `writeDictatedText` is the sole
-          // writer of `contentRef` — and updates it synchronously, ahead
-          // of this async round trip ever resolving. A stray response
-          // landing here mid-session would otherwise clobber that fresher
-          // content with whatever the doc looked like right before (or
-          // moments into) dictation started.
-          if (isListeningRef.current) return;
           contentRef.current = JSON.stringify(json);
           scheduleSave();
         })
@@ -375,143 +340,6 @@ export default function NoteScreen() {
   // run for this render.
   const editorRef = useRef(editor);
   editorRef.current = editor;
-
-  // Ticket 08 (Dictation): writes `text` into the document at the current
-  // dictation range (`dictationRangeRef`), replacing whatever the previous
-  // partial result left there — the same primitive for both a refined
-  // partial and a settled final result. Updates `contentRef` and calls
-  // `editor.setContent` directly rather than going through TenTap's own
-  // `onChange` round trip (see that handler's `isListeningRef` guard
-  // above): Dictation is the sole writer while listening, and needs its
-  // own writes reflected synchronously so the *next* partial (which can
-  // arrive faster than a WebView bridge round trip resolves) always
-  // replaces against up-to-date content.
-  const writeDictatedText = useCallback(
-    (text: string) => {
-      const doc = toDoc(contentRef.current);
-      const { start } = dictationRangeRef.current;
-      const to = start + dictationRangeRef.current.insertedLength;
-      const nextDoc = replaceTextRange(doc, start, to, text);
-      contentRef.current = JSON.stringify(nextDoc);
-      editorRef.current.setContent(nextDoc);
-      const endPos = start + text.length;
-      editorRef.current.setSelection(endPos, endPos);
-      scheduleSave();
-      return endPos;
-    },
-    [scheduleSave],
-  );
-
-  // One handler for both partial and final results: the two differ only in
-  // whether a trailing space closes out the utterance (separating it from
-  // whatever's dictated next in the same session, the way a natural pause
-  // reads when typed) and in how `dictationRangeRef` resets afterward —
-  // sharing one body keeps that reset in lockstep with the write it
-  // follows, rather than two copies that could drift.
-  //
-  // Guarded on `isListeningRef`/`isUnmountedRef`: the adapter's own
-  // contract (ticket 07) is that `stop()` "settles any in-flight result as
-  // final", so one more partial or final event can legitimately arrive
-  // *after* `stopDictation` has already flipped the editor back to
-  // editable — by then the user may already be typing again, and applying
-  // a write built from a now-stale `dictationRangeRef` would splice into
-  // whatever they just typed at the wrong offset. Same risk if the event
-  // arrives after this screen has already unmounted (its leave effect may
-  // already have decided to delete or save the Note). Both cases are
-  // treated the same as ticket 04's own accepted limitation for a
-  // straggling `onChange` round trip after navigating away: the write is
-  // simply dropped rather than applied somewhere it can no longer be
-  // trusted to be correct.
-  const handleDictationResult = useCallback(
-    (transcript: string, isFinal: boolean) => {
-      if (isUnmountedRef.current || !isListeningRef.current) return;
-      const text = isFinal ? `${transcript} ` : transcript;
-      const endPos = writeDictatedText(text);
-      dictationRangeRef.current = isFinal
-        ? { start: endPos, insertedLength: 0 }
-        : { start: dictationRangeRef.current.start, insertedLength: text.length };
-    },
-    [writeDictatedText],
-  );
-
-  const handleDictationError = useCallback(
-    (error: DictationError) => {
-      // Covers both "couldn't start" (denied mic/speech permission, no
-      // on-device recognizer available) and "cut short mid-session" — the
-      // engine is presumed done either way, but `stop()` is safe to call
-      // even if it already is (ticket 07). Without this, the editor would
-      // stay read-only/toolbar-less with no way out.
-      isListeningRef.current = false;
-      setIsListening(false);
-      dictationAdapter.stop();
-      Alert.alert("Dictation unavailable", error.message);
-    },
-    [dictationAdapter],
-  );
-
-  // Subscribes once — `dictationAdapter` and the two handlers above are all
-  // stable across re-renders (see their own `useRef`/`useCallback`), so
-  // this behaves like a mount-only effect despite not being one literally.
-  // Stopping on cleanup covers navigating away mid-session, so a
-  // background dictation/microphone session never outlives this screen —
-  // `isUnmountedRef` (set in the leave effect further down) is what stops
-  // a result event that was already in flight at that moment from still
-  // being applied, since a subscription's own cleanup can't retroactively
-  // cancel a call already on its way.
-  useEffect(() => {
-    const offPartial = dictationAdapter.onPartialResult(({ transcript }) =>
-      handleDictationResult(transcript, false),
-    );
-    const offFinal = dictationAdapter.onFinalResult(({ transcript }) =>
-      handleDictationResult(transcript, true),
-    );
-    const offError = dictationAdapter.onError(handleDictationError);
-    return () => {
-      offPartial();
-      offFinal();
-      offError();
-      dictationAdapter.stop();
-    };
-  }, [dictationAdapter, handleDictationResult, handleDictationError]);
-
-  // Starts a fresh utterance from wherever the cursor currently is — the
-  // *only* place a live selection is read from the editor rather than
-  // tracked via `dictationRangeRef`, since this is the one moment nothing
-  // has dictated anything yet to track. `getEditorState()` reflects
-  // whatever TenTap last synced from the WebView, which — unlike every
-  // other field on the same object — isn't populated until the WebView's
-  // first selection/transaction message actually arrives; tapping the mic
-  // before ever tapping into the text area (an existing Note has no
-  // `autofocus`) can race ahead of that, so this can't assume `.selection`
-  // exists yet and falls back to the start of the document instead of
-  // throwing.
-  const startDictation = useCallback(() => {
-    const selection = editorRef.current.getEditorState().selection as
-      | { from: number; to: number }
-      | undefined;
-    dictationRangeRef.current = { start: selection?.from ?? 0, insertedLength: 0 };
-    isListeningRef.current = true;
-    setIsListening(true);
-    dictationAdapter.start();
-  }, [dictationAdapter]);
-
-  const stopDictation = useCallback(() => {
-    // Set synchronously, ahead of the `setIsListening` state update
-    // actually re-rendering — `isListeningRef` is what `handleDictationResult`
-    // checks, and a trailing result racing in before the next render must
-    // already see listening as over (see that handler's own comment).
-    isListeningRef.current = false;
-    setIsListening(false);
-    dictationAdapter.stop();
-  }, [dictationAdapter]);
-
-  const toggleDictation = useCallback(() => {
-    if (isListening) {
-      stopDictation();
-    } else {
-      startDictation();
-    }
-  }, [isListening, startDictation, stopDictation]);
 
   // `injectCSS` silently no-ops until the WebView has actually finished
   // its own (internal) page load — for an existing Note, that's a render
@@ -753,44 +581,41 @@ export default function NoteScreen() {
         editor={editor}
         onLoad={() => setEditorLoadGeneration((n) => n + 1)}
       />
+      {/* A WebView (RichText, above) is a native view with its own
+          asynchronous layout — sizing it via `flex: 1` against a sibling
+          Toolbar inside the same KeyboardAvoidingView collapsed the
+          Toolbar's height entirely (tried it; the Toolbar rendered as a
+          sliver with no icons). Absolute-positioned and overlaid on top of
+          RichText instead, same as before this pass: RichText already
+          fills the full screen underneath it. */}
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={[styles.toolbarContainer, { paddingBottom: insets.bottom + 12 }]}
+        style={styles.toolbarContainer}
       >
-        {/* The floating dark pill matching the rest of the app's chrome
-            (see components/ui/bottom-nav.tsx) — `overflow: hidden` lets
-            its rounded corners clip the dictation row and Toolbar below,
-            which otherwise both paint their own (matching) background. */}
-        <View style={[styles.floatingToolbar, { backgroundColor: navBackgroundColor }]}>
-          <View style={styles.dictationRow}>
-            <Pressable
-              onPress={toggleDictation}
-              style={styles.micButton}
-              hitSlop={8}
-              accessibilityRole="button"
-              accessibilityLabel={
-                isListening ? "Stop dictation" : "Start dictation"
-              }
-            >
-              <IconSymbol
-                name="mic.fill"
-                size={20}
-                color={isListening ? dangerColor : navIconInactiveColor}
-              />
-            </Pressable>
-            {isListening && (
-              <ThemedText style={[styles.listeningLabel, { color: dangerColor }]}>
-                Listening…
-              </ThemedText>
-            )}
-          </View>
-          {/* Ticket 08: formatting is disabled while Dictation listens —
-              hiding the Toolbar outright (rather than merely disabling its
-              commands) is what makes that true for the user, not just in
-              theory. `hidden={undefined}` otherwise defers to the Toolbar's
-              own keyboard/focus-driven show behaviour, unchanged from before
-              this ticket. */}
-          <Toolbar editor={editor} hidden={isListening ? true : undefined} />
+        {/* Full-width, not a floating margined pill: the Toolbar's ~11
+            formatting icons (bold/italic/link/checklist/heading/underline/
+            lists/indent/outdent/undo/redo) already need horizontal
+            scrolling to all fit on most phones even edge-to-edge — a
+            narrower, fully-rounded pill left even fewer visible before the
+            cut-off, and its rounded sides clipped the trailing icon
+            mid-shape rather than reading as "more to scroll to". Only the
+            top corners are rounded, like an attached sheet; the dark
+            background still extends into the bottom safe area, matching
+            the color the rest of the app's floating chrome uses (see
+            components/ui/bottom-nav.tsx) — `paddingBottom` keeps the
+            actual icons clear of the home indicator without leaving a gap
+            of mismatched background beneath the bar. */}
+        <View
+          style={[
+            styles.floatingToolbar,
+            { backgroundColor: navBackgroundColor, paddingBottom: insets.bottom },
+          ]}
+        >
+          {/* Always shown (feedback: TenTap's own keyboard/focus-driven
+              default made it disappear the instant the keyboard closed,
+              with no way short of tapping back into the text to bring it
+              back). */}
+          <Toolbar editor={editor} />
         </View>
       </KeyboardAvoidingView>
       <FolderPickerModal
@@ -836,28 +661,16 @@ const styles = StyleSheet.create({
     position: "absolute",
     width: "100%",
     bottom: 0,
-    paddingHorizontal: 16,
   },
   floatingToolbar: {
-    borderRadius: 28,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     overflow: "hidden",
     shadowColor: "#000",
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.2,
     shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
+    shadowOffset: { width: 0, height: -4 },
     elevation: 8,
-  },
-  dictationRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  micButton: {
-    padding: 4,
-  },
-  listeningLabel: {
-    marginLeft: 8,
   },
   centered: {
     flex: 1,

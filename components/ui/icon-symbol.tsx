@@ -21,9 +21,11 @@ const MAPPING = {
   'ellipsis': 'more-horiz',
   'magnifyingglass': 'search',
   'checkmark': 'check',
-  'mic.fill': 'mic',
   'house.fill': 'home',
   'plus': 'add',
+  'checklist': 'checklist',
+  'circle': 'radio-button-unchecked',
+  'checkmark.circle.fill': 'check-circle',
 } as IconMapping;
 
 /**

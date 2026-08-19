@@ -4,14 +4,15 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useThemeColor } from "@/hooks/use-theme-color";
 
-export type NavSection = "home" | "search";
+export type NavSection = "home" | "search" | "tasks";
 
 /**
- * The floating bottom chrome shared by Home, Folder-browse, and Search
- * (ticket-less UI pass, inspired by the reference in ui-refferences/) — a
- * dark pill holding Home/Search, plus a separate accent-colored FAB for
- * "new Note". Deliberately absent from the Note editor, which has its own
- * floating back/toolbar chrome instead.
+ * The floating bottom chrome shared by Home, Folder-browse, Search, and
+ * Tasks (ticket-less UI pass, inspired by the reference in
+ * ui-refferences/) — a dark pill holding Home/Search/Tasks, plus a
+ * separate accent-colored FAB for "new Note". Deliberately absent from
+ * the Note editor, which has its own floating back/toolbar chrome
+ * instead.
  *
  * The pill's dark background is one of the few colors that stays constant
  * across light/dark app theme (see constants/theme.ts's `navBackground`)
@@ -64,6 +65,20 @@ export function BottomNav({
             name="magnifyingglass"
             size={22}
             color={active === "search" ? iconActive : iconInactive}
+          />
+        </Pressable>
+        <Pressable
+          onPress={() => onNavigate("tasks")}
+          hitSlop={10}
+          style={styles.navButton}
+          accessibilityRole="button"
+          accessibilityLabel="Tasks"
+          accessibilityState={{ selected: active === "tasks" }}
+        >
+          <IconSymbol
+            name="checklist"
+            size={22}
+            color={active === "tasks" ? iconActive : iconInactive}
           />
         </Pressable>
       </View>

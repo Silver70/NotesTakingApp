@@ -2,6 +2,13 @@
 
 Status: ready-for-agent
 
+> **Descoped 2026-08-19 — Voice dictation is removed from this app.** Everything below
+> about Dictation / speech recognition (user stories 17–23, the "Voice dictation
+> engine" decision, the Dictation engine adapter seam, and tickets 07 and 08) is
+> kept as the historical record of what was built, not as current scope. The
+> `expo-speech-recognition` dependency, its config plugin, `lib/dictation/`, and the
+> editor's mic control have all been deleted — see tickets 07 and 08.
+
 ## Problem Statement
 
 The user wants a fast, distraction-free place on their phone to capture and organize thoughts: jot something down the moment it occurs to them, format it enough to stay readable, group related notes together, find any of them again later, and — when typing isn't convenient — just speak and have it written down for them. They don't want to manage an account, wait on a network connection, or think about syncing; they just want a notes app that works.

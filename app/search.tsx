@@ -156,6 +156,7 @@ export default function SearchScreen() {
         active="search"
         onNavigate={(section) => {
           if (section === "home") router.push("/");
+          if (section === "tasks") router.push("/tasks");
         }}
         onAdd={() => router.push("/note/new")}
       />

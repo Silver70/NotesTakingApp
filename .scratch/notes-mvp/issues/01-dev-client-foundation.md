@@ -9,5 +9,5 @@
 - [ ] `expo prebuild` (or equivalent) runs cleanly and produces native iOS and Android projects
 - [ ] `expo run:ios` launches the custom dev client on an iOS simulator or device
 - [ ] `expo run:android` launches the custom dev client on an Android emulator or device
-- [ ] Config plugins for `@10play/tentap-editor` and `expo-speech-recognition` are installed and present in `app.json`/`app.config`, even though neither is used by app code yet
+- [ ] Config plugins for `@10play/tentap-editor` and `expo-speech-recognition` are installed and present in `app.json`/`app.config`, even though neither is used by app code yet _(the `expo-speech-recognition` plugin was later removed — see ticket 08)_
 - [ ] Plain Expo Go is no longer expected to run this app (documented, e.g. in the README) since native modules are now in play

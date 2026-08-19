@@ -4,7 +4,7 @@
 
 **Blocked by:** 01
 
-**Status:** done
+**Status:** removed (2026-08-19)
 
 - [x] Adapter exposes a start/stop control surface independent of any specific screen
 - [x] Adapter emits partial (interim) results as speech is recognized, before the user stops speaking
@@ -22,3 +22,10 @@ Implemented in `lib/dictation/dictation-adapter.ts`, `lib/dictation/native-engin
 - `DictationEngine`'s `addListener` is only typed for the `result` (and, see below, `error`) events — `audiostart`/`audioend` aren't reachable through the interface at all, so "this adapter cannot read raw audio" is a compile-time property, not just a runtime habit.
 - 12 tests drive `createDictationAdapter` against a fake `DictationEngine` that dispatches synthetic `result`/`error` events — no real microphone or native module involved, per the testing decision in spec.md.
 - Hardening found via `/code-review` before committing: two independent review passes flagged that the adapter had no way to surface a failed `start()` (denied mic/speech permission, no on-device recognizer available) — silently "listening" forever with no partial/final result and no signal to a future consumer. Added `onError`/`DictationError` to the seam, wired to the native module's `error` event, with matching test coverage. Everything else raised by review was pre-existing code from earlier tickets, out of scope here.
+
+### Removed 2026-08-19
+
+Voice dictation is cut from the app entirely. `lib/dictation/` (the seam, the native
+engine, and its 12 tests) is deleted, along with the `expo-speech-recognition`
+dependency and its `app.json` config plugin. The checklist above records what this
+ticket did build; none of it ships any more. See ticket 08 for the consumer side.

@@ -1,6 +1,6 @@
 # NotesApp
 
-A local-first, cross-platform (iOS + Android) mobile note-taking app. A single user creates, edits, and permanently deletes rich-text **Notes**, optionally dictating text live via on-device speech recognition. No accounts, no server, no sync — all data lives on the device.
+A local-first, cross-platform (iOS + Android) mobile note-taking app. A single user creates, edits, and permanently deletes rich-text **Notes**. No accounts, no server, no sync — all data lives on the device.
 
 ## Language
 
@@ -16,10 +16,6 @@ _Avoid_: Notebook, tag, label, category (a Folder is not a tag — a Note can't 
 The implicit state of a Note that has never been assigned to a Folder. Shown in "All Notes" alongside every other note.
 _Avoid_: Inbox, uncategorized
 
-**Dictation**:
-Live, on-device speech-to-text: as the user speaks, recognized words are written directly into the Note's content in real time. The raw audio is never persisted — only the resulting text is kept.
-_Avoid_: Voice recording, voice memo, transcription (transcription implies a saved audio source; there isn't one here)
-
 **Deletion**:
 Permanently removing a Note. There is no Trash, no recovery window, and no soft-delete state — deletion is immediate and irreversible, gated only by a confirmation prompt at the moment of deletion. Deleting a Folder is a distinct action that never deletes the Notes inside it (see Folder).
 _Avoid_: Trash, soft delete, archive
@@ -32,8 +28,12 @@ _Avoid_: Filter (reserved for folder-scoped narrowing, if that's ever added)
 An inline or block-level style applied to a Note's content: heading (multiple levels), bold, italic, underline, bulleted list, numbered list, checkbox/checklist. Applied via a WYSIWYG toolbar — the user never types markup syntax.
 _Avoid_: Markdown, style tag
 
+**Task**:
+A single checklist item inside a Note — the checkbox Formatting mark, seen as a thing the user tracks rather than as a style. A Task never exists on its own: it always belongs to exactly one Note, has no due date, reminder, or assignee, and is identified only by its position in that Note's content. The Tasks screen gathers every Task from every Note into one place; ticking one there is the same edit as ticking it in the editor.
+_Avoid_: To-do, reminder, checklist (a Checklist is the group; a Task is one item in it)
+
 ## Resolved behaviors (not glossary terms, but settled product decisions worth recording)
 
 - A new Note defaults into the Folder it was created from; from "All Notes" it starts Unfiled.
 - A Note with no content is discarded silently if the user navigates away without typing anything — it's never persisted as an empty entry.
-- During Dictation, recognized text inserts at the current cursor position, not just appended at the end. Manual typing is disabled while actively listening.
+- Ticking a Task from the Tasks screen counts as editing its Note: it changes the Note's stored content, so it updates that Note's "last edited" time and moves it up the Notes list, exactly as editing it in the editor would.

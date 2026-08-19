@@ -4,9 +4,8 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
 
 ## ⚠️ Requires a custom Dev Client — Expo Go will not work
 
-This app depends on native modules (`@10play/tentap-editor` for rich-text
-editing, `expo-speech-recognition` for on-device dictation) that aren't
-available in the plain Expo Go sandbox. You must build and run a
+This app depends on a native module (`@10play/tentap-editor`, for rich-text
+editing) that isn't available in the plain Expo Go sandbox. You must build and run a
 [custom Expo Dev Client](https://docs.expo.dev/develop/development-builds/introduction/)
 instead — see [Get started](#get-started) below.
 

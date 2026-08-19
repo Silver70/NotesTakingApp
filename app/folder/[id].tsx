@@ -168,6 +168,7 @@ export default function FolderScreen() {
         onNavigate={(section) => {
           if (section === "home") router.push("/");
           if (section === "search") router.push("/search");
+          if (section === "tasks") router.push("/tasks");
         }}
         onAdd={handleNewNote}
       />

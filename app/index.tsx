@@ -132,6 +132,7 @@ export default function HomeScreen() {
         active="home"
         onNavigate={(section) => {
           if (section === "search") router.push("/search");
+          if (section === "tasks") router.push("/tasks");
         }}
         onAdd={() => router.push("/note/new")}
       />
