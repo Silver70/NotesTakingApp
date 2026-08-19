@@ -1,4 +1,11 @@
-import { collectTasks, extractTasks, setTaskChecked } from '../tasks';
+import {
+  applyTaskOrder,
+  captureTaskOrder,
+  collectTasks,
+  extractTasks,
+  setTaskChecked,
+  type TaskGroup,
+} from '../tasks';
 
 /** A TenTap/ProseMirror doc shaped like what `editor.getJSON()` produces
  * for a heading followed by a two-item checklist, one of them ticked. */
@@ -274,5 +281,86 @@ describe('collectTasks', () => {
 
   it('returns an empty list when no Note holds a checklist', () => {
     expect(collectTasks([{ id: 1, content: 'just prose' }])).toEqual([]);
+  });
+});
+
+describe('display order', () => {
+  interface Note {
+    id: number;
+  }
+
+  const groups = (spec: [number, number[]][]): TaskGroup<Note>[] =>
+    spec.map(([id, indexes]) => ({
+      note: { id },
+      tasks: indexes.map((index) => ({ index, text: `item ${index}`, checked: false })),
+    }));
+
+  it('re-applies a snapshot so ticking an item does not move it', () => {
+    const before = groups([
+      [1, [0, 1, 2]],
+      [2, [0]],
+    ]);
+    const order = captureTaskOrder(before);
+
+    // What a later derivation looks like once item 0 was ticked: it sinks
+    // below the open items, and its note floats to the front on the
+    // `updatedAt` bump a real edit earns.
+    const after = groups([
+      [1, [1, 2, 0]],
+      [2, [0]],
+    ]);
+    // Re-derived with note 1 first is already the case here; reverse to
+    // model the reordering across groups too.
+    const reordered = [after[0], after[1]];
+
+    const stabilized = applyTaskOrder(reordered, order);
+
+    expect(stabilized.map((group) => group.note.id)).toEqual([1, 2]);
+    expect(stabilized[0].tasks.map((task) => task.index)).toEqual([0, 1, 2]);
+  });
+
+  it('holds a note in place when a fresher updatedAt would float it up', () => {
+    const order = captureTaskOrder(groups([
+      [1, [0]],
+      [2, [0]],
+      [3, [0]],
+    ]));
+
+    // Note 3 was edited, so the store now lists it first.
+    const rederived = groups([
+      [3, [0]],
+      [1, [0]],
+      [2, [0]],
+    ]);
+
+    expect(applyTaskOrder(rederived, order).map((group) => group.note.id)).toEqual([1, 2, 3]);
+  });
+
+  it('puts a note the snapshot has never seen at the front', () => {
+    const order = captureTaskOrder(groups([[1, [0]]]));
+    const rederived = groups([
+      [9, [0]],
+      [1, [0]],
+    ]);
+
+    expect(applyTaskOrder(rederived, order).map((group) => group.note.id)).toEqual([9, 1]);
+  });
+
+  it('drops nothing and invents nothing — it only reorders', () => {
+    const order = captureTaskOrder(groups([
+      [1, [0]],
+      [2, [0]],
+    ]));
+    // Note 2 was deleted since the snapshot.
+    const rederived = groups([[1, [0]]]);
+
+    expect(applyTaskOrder(rederived, order).map((group) => group.note.id)).toEqual([1]);
+  });
+
+  it('leaves a group untouched when the snapshot knows nothing about it', () => {
+    const rederived = groups([[5, [0, 1]]]);
+    const stabilized = applyTaskOrder(rederived, { noteIds: [], taskIndexes: {} });
+
+    expect(stabilized[0].tasks.map((task) => task.index)).toEqual([0, 1]);
   });
 });

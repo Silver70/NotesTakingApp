@@ -8,21 +8,26 @@ import { StatusBar } from "expo-status-bar";
 import { useMemo } from "react";
 import "react-native-reanimated";
 
+import { NotesStoreProvider } from "@/components/notes-store-provider";
 import { PreferencesProvider } from "@/components/preferences-provider";
 import { DatabaseProvider } from "@/db/context";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useThemeColor } from "@/hooks/use-theme-color";
 
 export default function RootLayout() {
-  // `DatabaseProvider` outermost: preferences are stored in the same
-  // database as Notes (ticket 09), so the settings repository has to exist
-  // before anything can read a preference. Everything themed then sits
-  // inside `PreferencesProvider` — including the navigation theme below,
-  // which is why the app shell is its own component rather than this one.
+  // `DatabaseProvider` outermost: both stores below read through
+  // repositories it opens, so it has to resolve first. `PreferencesProvider`
+  // next, because everything themed sits inside it — including the
+  // navigation theme below, which is why the app shell is its own
+  // component rather than this one. `NotesStoreProvider` innermost: it
+  // holds the app's Notes and Folders and needs neither of the other two,
+  // but its own loading state is themed.
   return (
     <DatabaseProvider>
       <PreferencesProvider>
-        <AppShell />
+        <NotesStoreProvider>
+          <AppShell />
+        </NotesStoreProvider>
       </PreferencesProvider>
     </DatabaseProvider>
   );

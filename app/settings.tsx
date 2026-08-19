@@ -1,5 +1,5 @@
-import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useRef, useState } from "react";
+import { useRouter } from "expo-router";
+import { useCallback } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -9,7 +9,7 @@ import { SettingsSection } from "@/components/settings/settings-section";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { BottomNav, NAV_ROUTES } from "@/components/ui/bottom-nav";
-import { useNotesRepository } from "@/db/context";
+import { useCounts, useNotesActions } from "@/hooks/use-notes-store";
 import { usePreferences } from "@/hooks/use-preferences";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { NOTE_TEXT_SIZES, THEME_MODES } from "@/lib/preferences";
@@ -30,7 +30,6 @@ import { NOTE_TEXT_SIZES, THEME_MODES } from "@/lib/preferences";
  * changed them, which is the clearest possible preview of the choice.
  */
 export default function SettingsScreen() {
-  const repo = useNotesRepository();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { preferences, setPreference } = usePreferences();
@@ -38,31 +37,13 @@ export default function SettingsScreen() {
   const dangerColor = useThemeColor({}, "danger");
   const separatorColor = useThemeColor({}, "separator");
 
-  const [counts, setCounts] = useState<{ notes: number; folders: number } | null>(null);
-
-  // Guards a stale response from clobbering a fresher one — the reload
-  // fired after "Delete all Notes" races the one this screen's focus
-  // started, and the older answer would put the old Note count straight
-  // back on screen. Same requestIdRef pattern as app/search.tsx and
-  // app/tasks.tsx.
-  const requestIdRef = useRef(0);
-
-  const reloadCounts = useCallback(() => {
-    const requestId = ++requestIdRef.current;
-    Promise.all([repo.countNotes(), repo.countFolders()])
-      .then(([notes, folders]) => {
-        if (requestId !== requestIdRef.current) return;
-        setCounts({ notes, folders });
-      })
-      .catch((error) => {
-        console.error("Failed to load counts", error);
-      });
-  }, [repo]);
-
-  // Same `useFocusEffect` reload every list screen does — Notes and
-  // Folders are created and deleted on other screens, and these counts
-  // have no other way to hear about it.
-  useFocusEffect(reloadCounts);
+  // Counted off the store rather than queried — Notes and Folders are
+  // created and deleted on other screens, and this is now simply what the
+  // app currently holds. Replaces two `count(*)` queries and the guard
+  // that kept the reload after "Delete all Notes" from being overtaken by
+  // the one this screen's own focus started.
+  const counts = useCounts();
+  const { deleteAllNotes } = useNotesActions();
 
   const handleDeleteAllNotes = useCallback(() => {
     // Deliberately the same native `Alert.alert` confirmation a single
@@ -81,8 +62,7 @@ export default function SettingsScreen() {
           style: "destructive",
           onPress: async () => {
             try {
-              await repo.deleteAllNotes();
-              reloadCounts();
+              await deleteAllNotes();
             } catch (error) {
               console.error("Failed to delete all notes", error);
               Alert.alert("Couldn't delete your Notes", "Please try again.");
@@ -91,7 +71,7 @@ export default function SettingsScreen() {
         },
       ],
     );
-  }, [repo, reloadCounts]);
+  }, [deleteAllNotes]);
 
   // Until the counts land, assume there are Notes: the alternative is a
   // delete control that starts out disabled on every launch and enables

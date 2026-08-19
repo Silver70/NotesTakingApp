@@ -2,6 +2,7 @@ import { count, desc, eq, isNull } from 'drizzle-orm';
 import type { BaseSQLiteDatabase } from 'drizzle-orm/sqlite-core';
 
 import { firstNonBlankLine, toPlainText } from '../lib/notes/rich-text';
+import { matchesQuery } from '../lib/notes/search';
 import * as schema from './schema';
 import { folders, notes, type FolderRow, type NoteRow } from './schema';
 
@@ -137,26 +138,16 @@ export function createNotesRepository(db: Database): NotesRepository {
     },
 
     async searchNotes(query) {
-      const q = query.trim().toLowerCase();
+      const q = query.trim();
       if (!q) {
         return [];
       }
+      // `content` is opaque to SQL (ADR-0001), so there's no index to push
+      // this into — every Note is read and filtered in memory. The
+      // predicate itself lives in lib/notes/search.ts, shared with the
+      // store's `selectSearchResults`, so the two can't drift apart.
       const all = await db.select().from(notes).orderBy(desc(notes.updatedAt));
-      return all.filter((note) => {
-        // `title` is always a substring of `body` (it's literally the
-        // first non-blank line of the same `toPlainText` projection), so
-        // this title check can't currently change the result — it's kept
-        // because the spec calls out matching title *and* body as two
-        // separate criteria. Both must read `toPlainText`, not raw
-        // `content`, now that content can be a serialized rich-text
-        // document (ADR-0001) rather than flat text: matching against the
-        // raw document would both miss plain-text phrases split across
-        // two formatting-mark text nodes and false-positive on words that
-        // only appear in the document's JSON structure (e.g. "bulletlist").
-        const plainText = toPlainText(note.content);
-        const title = firstNonBlankLine(plainText).toLowerCase();
-        return title.includes(q) || plainText.toLowerCase().includes(q);
-      });
+      return all.filter((note) => matchesQuery(note.content, q));
     },
 
     async countNotes() {

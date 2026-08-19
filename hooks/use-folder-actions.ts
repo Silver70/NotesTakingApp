@@ -1,37 +1,38 @@
 import { useCallback, useState } from "react";
 import { Alert } from "react-native";
 
-import type { NotesRepository } from "@/db/repository";
 import type { FolderRow } from "@/db/schema";
+import { useNotesActions } from "@/hooks/use-notes-store";
 
 /**
  * Rename/delete behavior for a Folder (ticket 05), shared by the Folders
  * list (app/index.tsx) and a single Folder's browse view
  * (app/folder/[id].tsx) — both offer the same two actions on a Folder and
  * would otherwise duplicate the same confirmation copy and error handling.
- * `onDeleted` is the one thing that genuinely differs between the two
- * callers (reload the list vs. navigate back out of the now-gone Folder),
- * so it's left to them.
+ *
+ * Writes go through the Notes store rather than the repository, so both
+ * screens see a rename or delete immediately without either one reloading:
+ * the `onChanged` callback both callers used to pass for exactly that is
+ * gone. `onDeleted` stays, because it isn't about refreshing data — it's
+ * the one genuine difference between the two callers (stay put vs.
+ * navigate back out of the Folder that no longer exists).
  */
-export function useFolderActions(
-  repo: NotesRepository,
-  { onChanged, onDeleted }: { onChanged: () => void; onDeleted: (folder: FolderRow) => void },
-) {
+export function useFolderActions({ onDeleted }: { onDeleted?: (folder: FolderRow) => void } = {}) {
+  const { renameFolder, deleteFolder } = useNotesActions();
   const [renamingFolder, setRenamingFolder] = useState<FolderRow | null>(null);
 
   const handleRename = useCallback(
     async (name: string) => {
       if (!renamingFolder) return;
       try {
-        await repo.renameFolder(renamingFolder.id, name);
+        await renameFolder(renamingFolder.id, name);
         setRenamingFolder(null);
-        onChanged();
       } catch (error) {
         console.error("Failed to rename folder", error);
         Alert.alert("Couldn't rename this Folder", "Please try again.");
       }
     },
-    [repo, renamingFolder, onChanged],
+    [renameFolder, renamingFolder],
   );
 
   const confirmDelete = useCallback(
@@ -47,8 +48,8 @@ export function useFolderActions(
           style: "destructive",
           onPress: async () => {
             try {
-              await repo.deleteFolder(folder.id);
-              onDeleted(folder);
+              await deleteFolder(folder.id);
+              onDeleted?.(folder);
             } catch (error) {
               console.error("Failed to delete folder", error);
               Alert.alert("Couldn't delete this Folder", "Please try again.");
@@ -57,7 +58,7 @@ export function useFolderActions(
         },
       ]);
     },
-    [repo, onDeleted],
+    [deleteFolder, onDeleted],
   );
 
   const showOptions = useCallback(

@@ -1,4 +1,4 @@
-import { useFocusEffect, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { Alert, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -10,9 +10,9 @@ import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { BottomNav, NAV_ROUTES } from "@/components/ui/bottom-nav";
 import { SearchBarButton } from "@/components/ui/search-bar-button";
-import { useNotesRepository } from "@/db/context";
-import type { FolderRow, NoteRow } from "@/db/schema";
+import type { NoteRow } from "@/db/schema";
 import { useFolderActions } from "@/hooks/use-folder-actions";
+import { useFolders, useNotes, useNotesActions } from "@/hooks/use-notes-store";
 import { useThemeColor } from "@/hooks/use-theme-color";
 
 /**
@@ -25,46 +25,33 @@ import { useThemeColor } from "@/hooks/use-theme-color";
  * delete (via FoldersRow's long-press).
  */
 export default function HomeScreen() {
-  const repo = useNotesRepository();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const sectionLabelColor = useThemeColor({}, "placeholder");
 
-  const [folders, setFolders] = useState<FolderRow[]>([]);
-  const [notes, setNotes] = useState<NoteRow[]>([]);
+  // Read straight off the shared store (components/notes-store-provider.tsx)
+  // — no local copy and no `useFocusEffect` reload. A Note created, edited,
+  // or discarded in the editor updated this list as it happened, so there
+  // is nothing left to re-fetch on the way back.
+  const notes = useNotes();
+  const folders = useFolders();
+  const { createFolder, deleteNote } = useNotesActions();
+
   const [creatingFolder, setCreatingFolder] = useState(false);
 
-  const reload = useCallback(() => {
-    repo.listFolders().then(setFolders).catch((error) => {
-      console.error("Failed to load folders", error);
-    });
-    repo.listNotes().then(setNotes).catch((error) => {
-      console.error("Failed to load notes", error);
-    });
-  }, [repo]);
-
-  // Re-fetch every time this screen regains focus — covers returning from
-  // the editor after an autosaved edit, a new Note, or a discarded blank
-  // Note, none of which this screen otherwise knows happened.
-  useFocusEffect(reload);
-
-  const { renamingFolder, setRenamingFolder, handleRename, showOptions } = useFolderActions(
-    repo,
-    { onChanged: reload, onDeleted: reload },
-  );
+  const { renamingFolder, setRenamingFolder, handleRename, showOptions } = useFolderActions();
 
   const handleCreateFolder = useCallback(
     async (name: string) => {
       try {
-        await repo.createFolder(name);
+        await createFolder(name);
         setCreatingFolder(false);
-        reload();
       } catch (error) {
         console.error("Failed to create folder", error);
         Alert.alert("Couldn't create this Folder", "Please try again.");
       }
     },
-    [repo, reload],
+    [createFolder],
   );
 
   const handleDeleteNote = useCallback(
@@ -76,8 +63,7 @@ export default function HomeScreen() {
           style: "destructive",
           onPress: async () => {
             try {
-              await repo.deleteNote(note.id);
-              reload();
+              await deleteNote(note.id);
             } catch (error) {
               console.error("Failed to delete note", error);
               Alert.alert("Couldn't delete this Note", "Please try again.");
@@ -86,7 +72,7 @@ export default function HomeScreen() {
         },
       ]);
     },
-    [repo, reload],
+    [deleteNote],
   );
 
   return (

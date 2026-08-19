@@ -14,6 +14,8 @@
  * unit test without a database.
  */
 
+import { firstNonBlankLine, toPlainText } from './rich-text';
+
 interface NoteWithFolderId {
   folderId: number | null;
 }
@@ -38,4 +40,31 @@ export function withFolderContext<T extends NoteWithFolderId>(
     ...note,
     folderName: note.folderId !== null ? (names.get(note.folderId) ?? null) : null,
   }));
+}
+
+/**
+ * Whether one Note's stored `content` matches a search query — the single
+ * definition of "matches", shared by `NotesRepository.searchNotes` and by
+ * the store's `selectSearchResults` so the two can never drift apart.
+ *
+ * Matches against the `toPlainText` projection, not raw `content`, now
+ * that content can be a serialized rich-text document (ADR-0001): matching
+ * the raw document would both miss plain-text phrases split across two
+ * formatting-mark text nodes and false-positive on words that only appear
+ * in the document's JSON structure (e.g. "bulletlist").
+ *
+ * The title check below can't currently change the result — `title` is
+ * literally the first non-blank line of the same projection, so it's
+ * always a substring of it — but is kept because the spec calls out
+ * matching title *and* body as two separate criteria.
+ *
+ * `query` is expected to be non-blank and is compared case-insensitively;
+ * a blank query matches everything here, so callers filter that case out
+ * themselves (both do — an empty search shows no results, not all of them).
+ */
+export function matchesQuery(content: string, query: string): boolean {
+  const needle = query.trim().toLowerCase();
+  const plainText = toPlainText(content);
+  const title = firstNonBlankLine(plainText).toLowerCase();
+  return title.includes(needle) || plainText.toLowerCase().includes(needle);
 }

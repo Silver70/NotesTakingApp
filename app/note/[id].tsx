@@ -31,10 +31,10 @@ import { ThemedView } from "@/components/themed-view";
 import { BackButton } from "@/components/ui/back-button";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useNotesRepository } from "@/db/context";
-import { NotFoundError, type NotesRepository } from "@/db/repository";
-import type { FolderRow } from "@/db/schema";
+import { NotFoundError } from "@/db/repository";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { usePreferences } from "@/hooks/use-preferences";
+import { useFolders, useNotesActions, useNotesLoaded, type NotesActions } from "@/hooks/use-notes-store";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import {
   decideAutosave,
@@ -66,9 +66,15 @@ function parseFolderIdParam(value: string | undefined): number | null {
 /** Executes whichever action `decideAutosave`/`decideOnLeave` decided on.
  * `initialFolderId` only matters for the "create" branch — an existing
  * Note's Folder is changed via `moveNote` (see `handleMove` below), not
- * through this autosave path. */
+ * through this autosave path.
+ *
+ * Takes the Notes store's write actions rather than the repository
+ * directly: these have the same signatures, but each one also folds its
+ * result into the shared state, which is what lets Home, Folder-browse,
+ * Search, and Tasks show this edit without re-fetching when the user
+ * navigates back to them. */
 async function applyAction(
-  repo: NotesRepository,
+  store: NotesActions,
   action: AutosaveAction | LeaveAction,
   onCreated: (id: number) => void,
   initialFolderId: number | null,
@@ -77,7 +83,7 @@ async function applyAction(
     case "create": {
       let note;
       try {
-        note = await repo.createNote({
+        note = await store.createNote({
           content: action.content,
           folderId: initialFolderId,
         });
@@ -89,7 +95,7 @@ async function applyAction(
         // failed retry here would otherwise repeat forever, since nothing
         // else ever clears `initialFolderId`.
         if (initialFolderId !== null && error instanceof NotFoundError) {
-          note = await repo.createNote({ content: action.content, folderId: null });
+          note = await store.createNote({ content: action.content, folderId: null });
         } else {
           throw error;
         }
@@ -98,10 +104,10 @@ async function applyAction(
       return;
     }
     case "update":
-      await repo.updateNoteContent(action.noteId, action.content);
+      await store.updateNoteContent(action.noteId, action.content);
       return;
     case "delete":
-      await repo.deleteNote(action.noteId);
+      await store.deleteNote(action.noteId);
       return;
     case "none":
       return;
@@ -116,6 +122,10 @@ export default function NoteScreen() {
   const isNewNote = id === "new";
   const numericId = isNewNote ? null : Number(id);
   const repo = useNotesRepository();
+  // Writes go through the store so every other screen sees this edit as it
+  // happens; the single-Note load below still reads the repository
+  // directly, since it needs one row by id rather than the whole library.
+  const store = useNotesActions();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
@@ -135,12 +145,15 @@ export default function NoteScreen() {
   const [folderId, setFolderId] = useState<number | null>(() =>
     parseFolderIdParam(folderIdParam),
   );
-  const [folders, setFolders] = useState<FolderRow[]>([]);
+  // Populates the Move-to-Folder picker (ticket 05), read from the shared
+  // store rather than fetched here — a Folder created or renamed on
+  // another screen is already in it.
+  const folders = useFolders();
   // Distinct from `folders.length === 0`, which is also true for a note
   // that's genuinely Unfiled with no other Folders to move into — without
   // this, the header's Move label would flash "Unfiled" for a filed Note
-  // for the brief window before its real Folder's name has loaded.
-  const [foldersLoaded, setFoldersLoaded] = useState(false);
+  // for the brief window before the store's first load has resolved.
+  const foldersLoaded = useNotesLoaded();
   const [showFolderPicker, setShowFolderPicker] = useState(false);
 
   // Mutable, not state: these back the autosave/leave decisions and must
@@ -331,7 +344,7 @@ export default function NoteScreen() {
       // whatever noteIdRef looks like *then* — not at schedule time.
       enqueueSave(() =>
         applyAction(
-          repo,
+          store,
           decideAutosave({ noteId: noteIdRef.current }, contentRef.current),
           (id) => {
             noteIdRef.current = id;
@@ -340,7 +353,7 @@ export default function NoteScreen() {
         ),
       );
     }, AUTOSAVE_DELAY_MS);
-  }, [enqueueSave, repo]);
+  }, [enqueueSave, store]);
 
   // `useEditorBridge` only ever consumes `initialContent` once, at the
   // render RichText first mounts (see `initialContent` state's own
@@ -512,27 +525,6 @@ export default function NoteScreen() {
     };
   }, [isNewNote, numericId, repo]);
 
-  // Populates the Move-to-Folder picker (ticket 05) — only relevant for an
-  // existing Note (see the header's Move control below), so a new Note
-  // never pays for a Folder list it can't use yet.
-  useEffect(() => {
-    if (isNewNote) return;
-    let cancelled = false;
-    repo
-      .listFolders()
-      .then((rows) => {
-        if (cancelled) return;
-        setFolders(rows);
-        setFoldersLoaded(true);
-      })
-      .catch((error) => {
-        console.error("Failed to load folders", error);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [isNewNote, repo]);
-
   // Moves this (already-persisted) Note to a different Folder, or back to
   // Unfiled — a direct, immediate repository call rather than something
   // routed through the autosave/leave decisions above, since it's not a
@@ -542,7 +534,7 @@ export default function NoteScreen() {
       const noteId = noteIdRef.current;
       if (noteId === null) return;
       try {
-        await repo.moveNote(noteId, newFolderId);
+        await store.moveNote(noteId, newFolderId);
         setFolderId(newFolderId);
       } catch (error) {
         console.error("Failed to move note", error);
@@ -551,7 +543,7 @@ export default function NoteScreen() {
         setShowFolderPicker(false);
       }
     },
-    [repo],
+    [store],
   );
 
   // Runs once, on navigating away from this Note: flushes whatever the
@@ -588,7 +580,7 @@ export default function NoteScreen() {
       }
       enqueueSave(() =>
         applyAction(
-          repo,
+          store,
           decideOnLeave({ noteId: noteIdRef.current }, contentRef.current),
           (id) => {
             noteIdRef.current = id;
@@ -597,9 +589,9 @@ export default function NoteScreen() {
         ),
       );
     };
-    // `enqueueSave` and `repo` are stable for the screen's lifetime — this
-    // is intentionally an unmount-only cleanup, not a re-run trigger.
-  }, [enqueueSave, repo]);
+    // `enqueueSave` and `store` are stable for the screen's lifetime —
+    // this is intentionally an unmount-only cleanup, not a re-run trigger.
+  }, [enqueueSave, store]);
 
   if (loadFailure === "not-found") {
     return (
@@ -721,11 +713,17 @@ export default function NoteScreen() {
             },
           ]}
         >
-          {/* Always shown (feedback: TenTap's own keyboard/focus-driven
-              default made it disappear the instant the keyboard closed,
-              with no way short of tapping back into the text to bring it
-              back). */}
-          <Toolbar editor={editor} />
+          {/* `hidden={false}` is load-bearing, not a default spelled out:
+              TenTap resolves an *omitted* `hidden` to
+              `!isKeyboardUp || !editorState.isFocused` and applies
+              `display: 'none'` — so without this the bar vanishes the
+              instant the keyboard closes (and never appears at all when
+              opening an existing Note, which doesn't autofocus), with no
+              way short of tapping back into the text to bring it back.
+              The pill around it has no intrinsic height, so it collapses
+              with it. Passing false pins the bar on screen the way the
+              rest of the app's floating chrome is. */}
+          <Toolbar editor={editor} hidden={false} />
         </View>
       </KeyboardAvoidingView>
       <FolderPickerModal

@@ -43,3 +43,5 @@ _Avoid_: Profile, config, options (Settings is the screen; a Preference is one v
 - Ticking a Task from the Tasks screen counts as editing its Note: it changes the Note's stored content, so it updates that Note's "last edited" time and moves it up the Notes list, exactly as editing it in the editor would.
 - "Delete all Notes" (Settings) deletes every Note and leaves every Folder standing — the mirror of deleting a Folder, which deletes no Notes. Neither action is ever a way of performing the other.
 - Theme mode, accent color, and Note text size take effect the moment they're chosen and survive a restart. There is no "apply" step and no restart prompt.
+- An edit made anywhere is visible everywhere at once. Creating, editing, moving, or deleting a Note updates every screen showing it as it happens — no screen shows a stale copy that only corrects itself when the user navigates back to it (ADR-0004).
+- The Tasks screen's order holds still while the user is on it. Ticking an item marks it done without moving it, or its Note, out from under the finger that tapped it; the list re-sorts the next time the screen is opened.

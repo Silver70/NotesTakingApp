@@ -153,3 +153,71 @@ export function collectTasks<T extends NoteContent>(notes: T[]): TaskGroup<T>[] 
   }
   return groups;
 }
+
+/**
+ * A snapshot of the order the Tasks screen is currently displaying:
+ * which Notes, in which order, and which items within each.
+ *
+ * Exists because `collectTasks` derives its order from live data —
+ * most-recently-edited Notes first, open items above completed ones — and
+ * ticking an item changes both inputs at once. Applied naively that means
+ * the row the user just tapped drops below the remaining open items *and*
+ * its whole Note jumps to the top of the screen, under the finger that
+ * tapped it. Freezing the order while the screen is on-screen, and
+ * re-deriving it on the next focus, keeps the list readable without
+ * making the underlying state any less live.
+ */
+export interface TaskOrder {
+  noteIds: number[];
+  /** Per Note id, the `index` of each of its items in display order. */
+  taskIndexes: Record<number, number[]>;
+}
+
+/** The order these groups are currently in, to be re-applied to later
+ * derivations of the same data via `applyTaskOrder`. */
+export function captureTaskOrder<T extends { id: number }>(
+  groups: TaskGroup<T>[],
+): TaskOrder {
+  const taskIndexes: TaskOrder['taskIndexes'] = {};
+  for (const group of groups) {
+    taskIndexes[group.note.id] = group.tasks.map((task) => task.index);
+  }
+  return { noteIds: groups.map((group) => group.note.id), taskIndexes };
+}
+
+/** Ranks a value by its position in `order`, or `fallback` when it isn't
+ * there at all. */
+function rankIn(order: number[], value: number, fallback: number): number {
+  const index = order.indexOf(value);
+  return index === -1 ? fallback : index;
+}
+
+/**
+ * Re-orders freshly derived groups to match a previous snapshot, so a
+ * change to the data doesn't rearrange what's on screen.
+ *
+ * Anything the snapshot doesn't know about — a Note or an item that
+ * appeared since it was taken — keeps its derived position at the front,
+ * where recency-first ordering already puts the newest work. Anything the
+ * snapshot knows but the data no longer has simply doesn't appear: this
+ * only ever reorders what it's given, never adds or removes.
+ */
+export function applyTaskOrder<T extends { id: number }>(
+  groups: TaskGroup<T>[],
+  order: TaskOrder,
+): TaskGroup<T>[] {
+  return [...groups]
+    .sort((a, b) => rankIn(order.noteIds, a.note.id, -1) - rankIn(order.noteIds, b.note.id, -1))
+    .map((group) => {
+      const taskOrder = order.taskIndexes[group.note.id];
+      if (!taskOrder) {
+        return group;
+      }
+      return {
+        ...group,
+        tasks: [...group.tasks].sort(
+          (a, b) => rankIn(taskOrder, a.index, -1) - rankIn(taskOrder, b.index, -1),
+        ),
+      };
+    });
+}
