@@ -11,6 +11,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -372,6 +373,28 @@ export default function NoteScreen() {
   const [editorLoadGeneration, setEditorLoadGeneration] = useState(0);
   const hasEditorLoadedOnce = editorLoadGeneration > 0;
 
+  // The floating toolbar sits clear of the home indicator when it's
+  // resting at the bottom of the screen — but with the keyboard up, the
+  // keyboard already covers that strip, and keeping the inset would leave
+  // a band of empty background between the bar and the keyboard's top
+  // edge. iOS gets the `will` events so the bar's margin changes on the
+  // same beat as `KeyboardAvoidingView`'s padding animation; Android only
+  // has the `did` pair.
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  useEffect(() => {
+    const isIOS = Platform.OS === "ios";
+    const shown = Keyboard.addListener(isIOS ? "keyboardWillShow" : "keyboardDidShow", () =>
+      setKeyboardVisible(true),
+    );
+    const hidden = Keyboard.addListener(isIOS ? "keyboardWillHide" : "keyboardDidHide", () =>
+      setKeyboardVisible(false),
+    );
+    return () => {
+      shown.remove();
+      hidden.remove();
+    };
+  }, []);
+
   // `bridgeExtensions`' baked-in CSS only takes effect for the WebView's
   // initial load (react-native-webview doesn't re-run injectedJavaScript
   // on prop changes) — if the OS theme changes while this screen stays
@@ -605,23 +628,26 @@ export default function NoteScreen() {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={styles.toolbarContainer}
       >
-        {/* Full-width, not a floating margined pill: the Toolbar's ~11
+        {/* Floats free of the bottom edge, like the rest of the app's
+            chrome (components/ui/bottom-nav.tsx) and like Apple Notes'
+            own formatting bar, rather than sitting flush as an attached
+            sheet.
+
+            A rounded rectangle, not a capsule: the Toolbar's ~11
             formatting icons (bold/italic/link/checklist/heading/underline/
-            lists/indent/outdent/undo/redo) already need horizontal
-            scrolling to all fit on most phones even edge-to-edge — a
-            narrower, fully-rounded pill left even fewer visible before the
-            cut-off, and its rounded sides clipped the trailing icon
-            mid-shape rather than reading as "more to scroll to". Only the
-            top corners are rounded, like an attached sheet; the dark
-            background still extends into the bottom safe area, matching
-            the color the rest of the app's floating chrome uses (see
-            components/ui/bottom-nav.tsx) — `paddingBottom` keeps the
-            actual icons clear of the home indicator without leaving a gap
-            of mismatched background beneath the bar. */}
+            lists/indent/outdent/undo/redo) already scroll horizontally on
+            most phones, and the 20pt side margins take another icon's
+            worth of width — a fully-rounded 28pt radius would then clip
+            the leading and trailing icons mid-shape against the curve
+            instead of reading as "there's more to scroll to". At 18 the
+            corners stay clear of the icon row. */}
         <View
           style={[
             styles.floatingToolbar,
-            { backgroundColor: navBackgroundColor, paddingBottom: insets.bottom },
+            {
+              backgroundColor: navBackgroundColor,
+              marginBottom: keyboardVisible ? 12 : insets.bottom + 12,
+            },
           ]}
         >
           {/* Always shown (feedback: TenTap's own keyboard/focus-driven
@@ -676,13 +702,16 @@ const styles = StyleSheet.create({
     bottom: 0,
   },
   floatingToolbar: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    // Same geometry as the bottom nav's pill — 20pt side margins, and a
+    // shadow cast downward now that the bar has an edge below it rather
+    // than being anchored to the screen's.
+    marginHorizontal: 20,
+    borderRadius: 18,
     overflow: "hidden",
     shadowColor: "#000",
     shadowOpacity: 0.2,
     shadowRadius: 16,
-    shadowOffset: { width: 0, height: -4 },
+    shadowOffset: { width: 0, height: 8 },
     elevation: 8,
   },
   centered: {

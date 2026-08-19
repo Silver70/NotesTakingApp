@@ -122,15 +122,23 @@ const styles = StyleSheet.create({
     right: 20,
     flexDirection: "row",
     alignItems: "center",
+    // Pill left, FAB right, the leftover width between them. The pill no
+    // longer stretches (see below), so without this the two would sit
+    // shoulder to shoulder and read as one wide control rather than as
+    // the nav and a separate action. `gap` is only a floor for a screen
+    // too narrow to leave any space between them.
+    justifyContent: "space-between",
     gap: 12,
   },
   pill: {
-    flex: 1,
+    // No `flex: 1`: the pill hugs its buttons, and the gap/padding below
+    // set the spacing, rather than the row's leftover width dictating it.
     flexDirection: "row",
     height: 56,
     borderRadius: 28,
     alignItems: "center",
-    justifyContent: "space-evenly",
+    gap: 8,
+    paddingHorizontal: 8,
     shadowColor: "#000",
     shadowOpacity: 0.2,
     shadowRadius: 16,
